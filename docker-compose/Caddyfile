@@ -1,0 +1,61 @@
+# =============================================================================
+# mcp.hosting Caddyfile
+# =============================================================================
+# Handles TLS termination (Let's Encrypt), wildcard subdomain routing,
+# and SSE-friendly reverse proxying to the mcp-hosting app.
+#
+# Requirements:
+#   - DNS: *.yourdomain.com and yourdomain.com must point to this server
+#   - For wildcard certs, you need a DNS challenge provider (see below)
+
+# Root domain
+{$DOMAIN} {
+	reverse_proxy mcp-hosting-app:3000 {
+		# SSE streaming -- disable response buffering
+		flush_interval -1
+
+		# Long timeouts for SSE connections
+		transport http {
+			response_header_timeout 0
+			dial_timeout 30s
+			read_timeout 3600s
+			write_timeout 3600s
+		}
+
+		# Forward relevant headers
+		header_up Host {host}
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+		header_up MCP-Session-Id {header.MCP-Session-Id}
+		header_up MCP-Protocol-Version {header.MCP-Protocol-Version}
+	}
+}
+
+# Wildcard subdomains (e.g., my-server.mcp.example.com)
+*.{$DOMAIN} {
+	tls {
+		dns cloudflare {env.CF_API_TOKEN}
+	}
+
+	reverse_proxy mcp-hosting-app:3000 {
+		# SSE streaming -- disable response buffering
+		flush_interval -1
+
+		# Long timeouts for SSE connections
+		transport http {
+			response_header_timeout 0
+			dial_timeout 30s
+			read_timeout 3600s
+			write_timeout 3600s
+		}
+
+		# Forward relevant headers
+		header_up Host {host}
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+		header_up MCP-Session-Id {header.MCP-Session-Id}
+		header_up MCP-Protocol-Version {header.MCP-Protocol-Version}
+	}
+}

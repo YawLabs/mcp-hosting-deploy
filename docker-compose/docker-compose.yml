@@ -1,0 +1,87 @@
+services:
+  # ---------------------------------------------------------------------------
+  # mcp-hosting-app -- the main platform container
+  # ---------------------------------------------------------------------------
+  mcp-hosting-app:
+    image: ghcr.io/yawlabs/mcp-hosting:latest
+    restart: unless-stopped
+    ports:
+      - "3000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - MCP_HOSTING_LICENSE_KEY=${MCP_HOSTING_LICENSE_KEY:-}
+      - COOKIE_SECRET=${COOKIE_SECRET}
+      - BASE_URL=${BASE_URL}
+      - EMAIL_FROM=${EMAIL_FROM}
+      - AWS_REGION=${AWS_REGION:-}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # postgres -- PostgreSQL 18
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-mcphosting}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB:-mcphosting}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mcphosting}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # redis -- Valkey 8 (Redis-compatible)
+  # ---------------------------------------------------------------------------
+  redis:
+    image: valkey/valkey:8
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # caddy -- TLS termination & reverse proxy
+  # ---------------------------------------------------------------------------
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      - DOMAIN=${DOMAIN}
+      - CF_API_TOKEN=${CF_API_TOKEN:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - mcp-hosting-app
+
+volumes:
+  postgres_data:
+  redis_data:
+  caddy_data:
+  caddy_config:
