@@ -1,0 +1,162 @@
+# =============================================================================
+# mcp.hosting Helm Values
+# =============================================================================
+#
+# Recommended production architecture:
+#   - Database:  External managed service (AWS RDS, Cloud SQL, AlloyDB, etc.)
+#   - Cache:     In-cluster Valkey (easy to recover, no persistence concerns)
+#   - Proxy:     In-cluster Caddy (automatic TLS via DNS challenge)
+#
+# By default this chart expects an external database. Set the connection
+# details under `externalDatabase`. For local development or testing you
+# can flip `postgres.enabled: true` to run Postgres inside the cluster.
+#
+# =============================================================================
+
+# -- Domain configuration
+# Your root domain (the dashboard lives here)
+domain: mcp.example.com
+# Wildcard domain for MCP server subdomains (e.g., my-server.mcp.example.com)
+wildcardDomain: "*.mcp.example.com"
+
+# -- License key (optional -- omit or leave empty for free tier)
+licenseKey: ""
+
+# -- Namespace (created if it doesn't exist)
+namespace: mcp-hosting
+
+# =============================================================================
+# App (mcp-hosting API + dashboard)
+# =============================================================================
+app:
+  image: ghcr.io/yawlabs/mcp-hosting
+  tag: latest
+  replicas: 2
+  port: 3000
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # -- Environment (NODE_ENV)
+  nodeEnv: production
+
+  # -- GitHub OAuth (required)
+  githubClientId: ""
+  githubClientSecret: ""
+
+  # -- Cookie signing secret (32+ characters, required)
+  cookieSecret: ""
+
+  # -- LemonSqueezy billing (optional)
+  lemonSqueezyApiKey: ""
+  lemonSqueezyWebhookSecret: ""
+  lemonSqueezyStoreId: ""
+
+  # -- GitHub App integration (optional)
+  githubAppId: ""
+  githubAppClientId: ""
+  githubAppWebhookSecret: ""
+  # Base64-encoded private key
+  githubAppPrivateKey: ""
+
+  # -- Build service
+  ecrRegistry: ""
+  ecrRepo: mcp-hosting-servers
+  buildNamespace: mcp-hosting
+  buildSecret: ""
+
+# =============================================================================
+# PostgreSQL (in-cluster -- for development/testing ONLY)
+# =============================================================================
+# Default: use an external database (RDS, Cloud SQL, etc.)
+# Set postgres.enabled=true only for development/testing
+postgres:
+  enabled: false  # DO NOT run Postgres in Kubernetes for production
+  image: postgres:18-alpine
+  storage: 10Gi
+  storageClass: ""
+  database: mcp_hosting
+  username: mcp
+  # -- IMPORTANT: Set a strong password before deploying!
+  password: ""
+
+# =============================================================================
+# External database (recommended for production)
+# =============================================================================
+externalDatabase:
+  host: ""       # e.g. my-db.abc123.us-west-2.rds.amazonaws.com
+  port: 5432
+  database: mcp_hosting
+  username: mcp
+  password: ""
+  sslMode: require
+
+# =============================================================================
+# Redis / Valkey (in-cluster)
+# =============================================================================
+redis:
+  enabled: true  # In-cluster Valkey is fine for production
+  image: valkey/valkey:8.0-alpine
+  storage: 1Gi
+  storageClass: ""
+  # -- Auth token for Redis (optional, recommended in production)
+  authToken: ""
+
+# =============================================================================
+# External Redis (optional -- only if you prefer a managed cache)
+# =============================================================================
+externalRedis:
+  host: ""       # e.g. my-cache.abc123.0001.usw2.cache.amazonaws.com
+  port: 6379
+  password: ""
+
+# =============================================================================
+# Caddy (reverse proxy + automatic TLS)
+# =============================================================================
+caddy:
+  enabled: true
+  image: caddy:2-alpine
+  replicas: 2
+  serviceType: LoadBalancer
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 128Mi
+
+# =============================================================================
+# Email (for magic link authentication)
+# =============================================================================
+email:
+  from: noreply@mcp.example.com
+  # Provider: "ses" or "smtp"
+  provider: ses
+  ses:
+    region: us-east-1
+    accessKeyId: ""
+    secretAccessKey: ""
+
+# =============================================================================
+# Monitoring
+# =============================================================================
+monitoring:
+  # Enable Prometheus ServiceMonitor (requires prometheus-operator CRDs)
+  serviceMonitor:
+    enabled: false
+
+# =============================================================================
+# Autoscaling (HPA for the app deployment)
+# =============================================================================
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPU: 70

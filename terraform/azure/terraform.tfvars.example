@@ -1,0 +1,32 @@
+# =============================================================================
+# mcp.hosting -- Azure Terraform Variables
+# =============================================================================
+# Copy this file to terraform.tfvars and fill in your values.
+# Do NOT commit terraform.tfvars to version control.
+# =============================================================================
+
+# Your domain (required) -- both root and *.domain must point to the server
+domain = "mcp.example.com"
+
+# mcp.hosting license key (required)
+license_key = "mch_xxxxxxxxxxxxxxxxxxxx"
+
+# PostgreSQL password (required) -- min 8 chars, mixed case + numbers
+db_password = "CHANGE_ME_to_a_strong_password"
+
+# Cookie signing secret (required) -- random 32+ character string
+cookie_secret = "CHANGE_ME_random_32_char_string_here"
+
+# Azure region
+# location = "eastus"
+
+# Resource group name
+# resource_group_name = "mcp-hosting-rg"
+
+# Cloudflare API token for wildcard TLS certs (optional, needed for *.domain)
+# cf_api_token = ""
+
+# Extra tags for all resources
+# tags = {
+#   Environment = "production"
+# }

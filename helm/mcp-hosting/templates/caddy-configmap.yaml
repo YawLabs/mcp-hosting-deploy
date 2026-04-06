@@ -1,0 +1,49 @@
+{{- if .Values.caddy.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mcp-hosting.fullname" . }}-caddy
+  namespace: {{ include "mcp-hosting.namespace" . }}
+  labels:
+    {{- include "mcp-hosting.labels" . | nindent 4 }}
+    app.kubernetes.io/component: caddy
+data:
+  Caddyfile: |
+    {
+      admin off
+    }
+
+    # Root domain — dashboard + API
+    {{ .Values.domain }} {
+      reverse_proxy {{ include "mcp-hosting.fullname" . }}-app:{{ .Values.app.port }} {
+        # SSE-friendly: disable buffering so events stream in real time
+        flush_interval -1
+        transport http {
+          keepalive 30s
+          keepalive_idle_conns 10
+        }
+      }
+
+      header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy strict-origin-when-cross-origin
+      }
+    }
+
+    # Wildcard — MCP server proxy subdomains
+    {{ .Values.wildcardDomain }} {
+      reverse_proxy {{ include "mcp-hosting.fullname" . }}-app:{{ .Values.app.port }} {
+        flush_interval -1
+        transport http {
+          keepalive 30s
+          keepalive_idle_conns 10
+        }
+      }
+
+      header {
+        X-Content-Type-Options nosniff
+        Referrer-Policy strict-origin-when-cross-origin
+      }
+    }
+{{- end }}

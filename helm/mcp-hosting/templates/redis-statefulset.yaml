@@ -1,0 +1,105 @@
+{{- if .Values.redis.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "mcp-hosting.fullname" . }}-redis
+  namespace: {{ include "mcp-hosting.namespace" . }}
+  labels:
+    {{- include "mcp-hosting.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+spec:
+  serviceName: {{ include "mcp-hosting.fullname" . }}-redis
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "mcp-hosting.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: redis
+  template:
+    metadata:
+      labels:
+        {{- include "mcp-hosting.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: redis
+    spec:
+      securityContext:
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+      containers:
+        - name: redis
+          image: {{ .Values.redis.image }}
+          imagePullPolicy: IfNotPresent
+          {{- if .Values.redis.authToken }}
+          args:
+            - --requirepass
+            - "$(REDIS_PASSWORD)"
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mcp-hosting.fullname" . }}-redis
+                  key: auth-token
+          {{- end }}
+          ports:
+            - name: redis
+              containerPort: 6379
+              protocol: TCP
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          livenessProbe:
+            exec:
+              command:
+                - redis-cli
+                {{- if .Values.redis.authToken }}
+                - -a
+                - "$(REDIS_PASSWORD)"
+                {{- end }}
+                - ping
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 3
+          readinessProbe:
+            exec:
+              command:
+                - redis-cli
+                {{- if .Values.redis.authToken }}
+                - -a
+                - "$(REDIS_PASSWORD)"
+                {{- end }}
+                - ping
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- if .Values.redis.storageClass }}
+        storageClassName: {{ .Values.redis.storageClass | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.redis.storage }}
+{{- if .Values.redis.authToken }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "mcp-hosting.fullname" . }}-redis
+  namespace: {{ include "mcp-hosting.namespace" . }}
+  labels:
+    {{- include "mcp-hosting.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+type: Opaque
+stringData:
+  auth-token: {{ .Values.redis.authToken | quote }}
+{{- end }}
+{{- end }}

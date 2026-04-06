@@ -1,0 +1,24 @@
+{{- if .Values.caddy.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "mcp-hosting.fullname" . }}-caddy
+  namespace: {{ include "mcp-hosting.namespace" . }}
+  labels:
+    {{- include "mcp-hosting.labels" . | nindent 4 }}
+    app.kubernetes.io/component: caddy
+spec:
+  type: {{ .Values.caddy.serviceType }}
+  ports:
+    - port: 80
+      targetPort: http
+      protocol: TCP
+      name: http
+    - port: 443
+      targetPort: https
+      protocol: TCP
+      name: https
+  selector:
+    {{- include "mcp-hosting.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: caddy
+{{- end }}

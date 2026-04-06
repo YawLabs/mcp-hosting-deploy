@@ -1,0 +1,22 @@
+[
+  {
+    "ParameterKey": "DomainName",
+    "ParameterValue": "mcp.example.com"
+  },
+  {
+    "ParameterKey": "LicenseKey",
+    "ParameterValue": ""
+  },
+  {
+    "ParameterKey": "InstanceType",
+    "ParameterValue": "t4g.small"
+  },
+  {
+    "ParameterKey": "KeyPairName",
+    "ParameterValue": "my-keypair"
+  },
+  {
+    "ParameterKey": "EmailFrom",
+    "ParameterValue": ""
+  }
+]

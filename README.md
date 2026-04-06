@@ -66,12 +66,14 @@ The app container runs database migrations automatically on startup.
 
 ## Deploy templates
 
-| Template | Status |
-|---|---|
-| [Docker Compose](./docker-compose/) | Ready |
-| [Helm](./helm/) | Coming soon |
-| [CloudFormation](./cloudformation/) | Coming soon |
-| [Terraform](./terraform/) | Coming soon |
+| Template | Status | Notes |
+|---|---|---|
+| [Docker Compose](./docker-compose/) | Ready | Bundles Postgres for simplicity |
+| [Helm](./helm/) | Ready | Defaults to external database (RDS, Cloud SQL, etc.) |
+| [CloudFormation](./cloudformation/) | Coming soon | |
+| [Terraform](./terraform/) | Coming soon | |
+
+> **Helm chart note:** The Helm chart defaults to an **external managed database** (e.g. AWS RDS, Cloud SQL, AlloyDB). Set `externalDatabase.host` and credentials in your values. In-cluster Postgres is available for development by setting `postgres.enabled: true`. In-cluster Valkey is used by default and is fine for production.
 
 ## Managed alternative
 

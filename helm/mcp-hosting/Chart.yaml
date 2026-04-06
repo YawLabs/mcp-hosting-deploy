@@ -1,0 +1,14 @@
+apiVersion: v2
+name: mcp-hosting
+description: Self-hosted mcp.hosting platform for MCP server proxy and compliance testing
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - mcp
+  - model-context-protocol
+  - proxy
+  - ai
+maintainers:
+  - name: Yaw Labs
+    url: https://mcp.hosting
