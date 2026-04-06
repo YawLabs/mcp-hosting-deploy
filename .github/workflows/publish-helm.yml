@@ -1,0 +1,21 @@
+name: Publish Helm Chart
+on:
+  push:
+    paths: ['helm/**']
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+      - name: Package and push
+        run: |
+          helm package helm/mcp-hosting
+          helm push mcp-hosting-*.tgz oci://ghcr.io/yawlabs/charts

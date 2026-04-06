@@ -5,7 +5,17 @@ Self-host the [mcp.hosting](https://mcp.hosting) platform on your own infrastruc
 ## One-click deploy
 
 <!-- TODO: Replace TEMPLATE_ID with actual Railway template ID once created -->
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template/TEMPLATE_ID) [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/yawlabs/mcp-hosting-deploy)
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template/TEMPLATE_ID) [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/yawlabs/mcp-hosting-deploy) [![Launch Stack](https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/review?stackName=mcp-hosting&templateURL=https://raw.githubusercontent.com/YawLabs/mcp-hosting-deploy/master/cloudformation/ec2/template.yaml)
+
+## Install
+
+```bash
+# Docker
+docker pull ghcr.io/yawlabs/mcp-hosting:latest
+
+# Helm
+helm install mcp-hosting oci://ghcr.io/yawlabs/charts/mcp-hosting
+```
 
 ## What's included
 

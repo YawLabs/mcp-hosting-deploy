@@ -277,7 +277,7 @@ Resources:
                     retries: 5
 
                 app:
-                  image: ghcr.io/yaw/mcp-hosting:latest
+                  image: ghcr.io/yawlabs/mcp-hosting:latest
                   restart: always
                   ports:
                     - "80:3000"
