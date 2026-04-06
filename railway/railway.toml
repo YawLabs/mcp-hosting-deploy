@@ -1,0 +1,7 @@
+[build]
+dockerfilePath = ""
+
+[deploy]
+image = "ghcr.io/yawlabs/mcp-hosting:latest"
+healthcheckPath = "/health"
+restartPolicyType = "ON_FAILURE"

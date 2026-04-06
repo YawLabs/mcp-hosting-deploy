@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: mcp-hosting
+    runtime: image
+    image:
+      url: ghcr.io/yawlabs/mcp-hosting:latest
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: COOKIE_SECRET
+        generateValue: true
+      - key: MCP_HOSTING_LICENSE_KEY
+        sync: false
+      - key: BASE_DOMAIN
+        sync: false
+    healthCheckPath: /health
+
+databases:
+  - name: mcp-hosting-db
+    plan: starter
+    databaseName: mcp_hosting
+    user: mcp

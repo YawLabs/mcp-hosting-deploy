@@ -2,6 +2,11 @@
 
 Self-host the [mcp.hosting](https://mcp.hosting) platform on your own infrastructure. One deployment -- a license key determines what features are enabled.
 
+## One-click deploy
+
+<!-- TODO: Replace TEMPLATE_ID with actual Railway template ID once created -->
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template/TEMPLATE_ID) [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/yawlabs/mcp-hosting-deploy)
+
 ## What's included
 
 | Feature | Free | Licensed ($19/mo) |
@@ -70,8 +75,11 @@ The app container runs database migrations automatically on startup.
 |---|---|---|
 | [Docker Compose](./docker-compose/) | Ready | Bundles Postgres for simplicity |
 | [Helm](./helm/) | Ready | Defaults to external database (RDS, Cloud SQL, etc.) |
-| [CloudFormation](./cloudformation/) | Coming soon | |
-| [Terraform](./terraform/) | Coming soon | |
+| [Fly.io](./fly/) | Ready | Managed Postgres & Redis via `fly` CLI |
+| [Railway](./railway/) | Ready | One-click deploy button |
+| [Render](./render/) | Ready | Blueprint with managed Postgres |
+| [CloudFormation](./cloudformation/) | Ready | AWS-native with ECS Fargate |
+| [Terraform](./terraform/) | Ready | Multi-cloud (AWS, GCP, Azure) |
 
 > **Helm chart note:** The Helm chart defaults to an **external managed database** (e.g. AWS RDS, Cloud SQL, AlloyDB). Set `externalDatabase.host` and credentials in your values. In-cluster Postgres is available for development by setting `postgres.enabled: true`. In-cluster Valkey is used by default and is fine for production.
 

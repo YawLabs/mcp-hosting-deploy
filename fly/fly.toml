@@ -1,0 +1,40 @@
+# mcp.hosting -- Fly.io deployment
+#
+# Prerequisites:
+#   fly postgres create   -- provisions a managed Postgres cluster
+#   fly redis create       -- provisions a managed Redis (Upstash) instance
+#
+# After creating backing services, set secrets:
+#   fly secrets set DATABASE_URL=... REDIS_URL=... COOKIE_SECRET=...
+
+app = "mcp-hosting"
+primary_region = "iad"
+
+[build]
+  image = "ghcr.io/yawlabs/mcp-hosting:latest"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 250
+    soft_limit = 200
+
+[checks]
+  [checks.health]
+    type = "http"
+    port = 3000
+    path = "/health"
+    interval = "10s"
+    timeout = "5s"
+
+[env]
+  # BASE_DOMAIN = "mcp.example.com"
+  # MCP_HOSTING_LICENSE_KEY = ""
+  # EMAIL_FROM = "noreply@mcp.example.com"
+  NODE_ENV = "production"
