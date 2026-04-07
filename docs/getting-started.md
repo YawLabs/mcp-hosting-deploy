@@ -201,6 +201,10 @@ This platform uses **Streamable HTTP** as the production transport, per the [MCP
 
 The licensed proxy tier implements authentication and rate limiting for MCP server access. This aligns with the MCP spec's requirements for OAuth 2.1 with PKCE on HTTP-based transports.
 
+### MCP gateway architecture
+
+The proxy tier acts as an **MCP gateway** -- a centralized point that sits between AI clients and your MCP servers to enforce auth, rate limiting, and routing policies. This is the [emerging enterprise pattern](https://modelcontextprotocol.io/specification/2025-11-25) for managing multiple MCP servers at scale, avoiding fragile direct connections between every client and every server.
+
 ### Server discovery
 
 The MCP spec roadmap includes `.well-known` metadata for server discovery (targeted for the June 2026 spec release). This will allow clients to discover MCP server capabilities without establishing a live connection. Future versions of mcp.hosting will support this once the spec is finalized.
