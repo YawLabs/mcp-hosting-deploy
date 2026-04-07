@@ -1,14 +1,9 @@
 # Deploy mcp.hosting on Railway
 
-<!-- TODO: Replace TEMPLATE_ID with actual Railway template ID once created -->
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template/TEMPLATE_ID)
-
 ## Quick start
 
-1. Click the deploy button above (once the template is published), or:
-
 ```bash
-# Clone and deploy manually
+# Clone and deploy
 railway init
 railway up
 ```
