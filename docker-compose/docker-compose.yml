@@ -5,7 +5,7 @@ services:
   mcp-hosting-app:
     image: ghcr.io/yawlabs/mcp-hosting:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "3000"
     environment:
       - DATABASE_URL=${DATABASE_URL}
@@ -79,6 +79,11 @@ services:
       - caddy_config:/config
     depends_on:
       - mcp-hosting-app
+
+networks:
+  default:
+    name: mcp-hosting
+    driver: bridge
 
 volumes:
   postgres_data:

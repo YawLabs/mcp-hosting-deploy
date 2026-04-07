@@ -13,37 +13,34 @@ data:
       admin off
     }
 
-    # Root domain — dashboard + API
-    {{ .Values.domain }} {
+    # Reusable MCP-aware reverse proxy snippet
+    (mcp_proxy) {
       reverse_proxy {{ include "mcp-hosting.fullname" . }}-app:{{ .Values.app.port }} {
-        # SSE-friendly: disable buffering so events stream in real time
+        # SSE / Streamable HTTP: disable buffering so events stream in real time
         flush_interval -1
         transport http {
           keepalive 30s
           keepalive_idle_conns 10
         }
+        header_up MCP-Session-Id {header.MCP-Session-Id}
+        header_up MCP-Protocol-Version {header.MCP-Protocol-Version}
       }
 
       header {
-        X-Content-Type-Options nosniff
-        X-Frame-Options DENY
-        Referrer-Policy strict-origin-when-cross-origin
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
       }
+    }
+
+    # Root domain — dashboard + API
+    {{ .Values.domain }} {
+      import mcp_proxy
     }
 
     # Wildcard — MCP server proxy subdomains
     {{ .Values.wildcardDomain }} {
-      reverse_proxy {{ include "mcp-hosting.fullname" . }}-app:{{ .Values.app.port }} {
-        flush_interval -1
-        transport http {
-          keepalive 30s
-          keepalive_idle_conns 10
-        }
-      }
-
-      header {
-        X-Content-Type-Options nosniff
-        Referrer-Policy strict-origin-when-cross-origin
-      }
+      import mcp_proxy
     }
 {{- end }}

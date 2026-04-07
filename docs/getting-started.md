@@ -81,6 +81,12 @@ Edit `.env` and set at minimum:
 docker compose up -d
 ```
 
+For production, use the production overlay for resource limits and log rotation:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+```
+
 Check that everything is running:
 
 ```bash
@@ -98,7 +104,7 @@ docker compose logs -f caddy
 
 ## 6. Email configuration (AWS SES)
 
-Magic link authentication sends a login link to the user's email. This requires a working email provider.
+Magic link authentication sends a login link to the user's email. This requires **AWS SES** -- it is the only supported email provider.
 
 ### AWS SES setup
 
@@ -116,23 +122,46 @@ EMAIL_FROM=noreply@mcp.example.com
 
 5. Restart the app: `docker compose restart mcp-hosting-app`
 
-## 7. Verify your deployment
+**If no email credentials are configured, login will not work.** Email is required for magic link authentication.
+
+## 7. Health check
+
+The app exposes `GET /health` at the root domain. This endpoint returns HTTP 200 when the service is running and can accept requests. Use it for uptime monitoring:
+
+```bash
+curl -s https://mcp.example.com/health
+```
+
+## 8. Verify your deployment
 
 1. Open `https://mcp.example.com` in your browser. You should see the mcp.hosting dashboard.
 2. Try logging in with a magic link (requires email to be configured).
 3. Create a test MCP server and verify it's reachable at its subdomain.
 
-## 8. Production hardening
+## 9. Production hardening
 
-**Backups:** The Postgres data lives in a Docker volume. Set up regular backups:
+**Backups:** Use the included backup script for scheduled PostgreSQL backups:
 
 ```bash
-docker compose exec postgres pg_dump -U mcphosting mcphosting > backup-$(date +%Y%m%d).sql
+# One-time backup
+./scripts/backup.sh
+
+# Backup with S3 upload
+./scripts/backup.sh s3://my-bucket/mcp-backups
+
+# Schedule daily at 2am via cron
+0 2 * * * /path/to/mcp-hosting-deploy/scripts/backup.sh s3://my-bucket/mcp-backups
+```
+
+To restore from a backup:
+
+```bash
+gunzip -c backup-file.sql.gz | docker compose exec -T postgres psql -U mcphosting mcphosting
 ```
 
 **Firewall:** Only ports 80 and 443 need to be open. Block direct access to ports 5432 (Postgres) and 6379 (Redis) from the internet.
 
-**Monitoring:** The app exposes a `/health` endpoint. Point your uptime monitor at `https://mcp.example.com/health`.
+**Monitoring:** Point your uptime monitor at `https://mcp.example.com/health`.
 
 **Updates:**
 
@@ -143,7 +172,7 @@ docker compose up -d
 
 Database migrations run automatically on app startup. There is no manual migration step.
 
-## 9. License key
+## 10. License key
 
 To unlock proxy features (auth, rate limiting, routing):
 
@@ -157,3 +186,21 @@ MCP_HOSTING_LICENSE_KEY=lk_live_...
 3. Restart: `docker compose restart mcp-hosting-app`
 
 Proxy features activate immediately. No data loss or downtime.
+
+## 11. MCP protocol notes
+
+### Streamable HTTP transport
+
+This platform uses **Streamable HTTP** as the production transport, per the [MCP specification 2025-11-25](https://modelcontextprotocol.io/specification/2025-11-25). The reverse proxy is configured to:
+
+- Forward MCP-specific headers (`MCP-Session-Id`, `MCP-Protocol-Version`)
+- Support long-lived SSE connections (1-hour timeout)
+- Disable response buffering for real-time event streaming
+
+### Authentication (licensed tier)
+
+The licensed proxy tier implements authentication and rate limiting for MCP server access. This aligns with the MCP spec's requirements for OAuth 2.1 with PKCE on HTTP-based transports.
+
+### Server discovery
+
+The MCP spec roadmap includes `.well-known` metadata for server discovery (targeted for the June 2026 spec release). This will allow clients to discover MCP server capabilities without establishing a live connection. Future versions of mcp.hosting will support this once the spec is finalized.

@@ -146,7 +146,7 @@ resource "aws_security_group" "app" {
   }
 
   dynamic "ingress" {
-    for_each = var.ssh_key_name != "" ? [1] : []
+    for_each = var.ssh_key_name != "" && var.allowed_ssh_cidr != "" ? [1] : []
     content {
       description = "SSH"
       from_port   = 22
@@ -244,7 +244,8 @@ resource "aws_db_instance" "postgres" {
   password               = var.db_password
   db_subnet_group_name   = aws_db_subnet_group.main.name
   vpc_security_group_ids = [aws_security_group.rds.id]
-  skip_final_snapshot    = true
+  skip_final_snapshot       = false
+  final_snapshot_identifier = "mcp-hosting-final-${formatdate("YYYY-MM-DD", timestamp())}"
   publicly_accessible    = false
   multi_az               = false
   tags                   = merge(var.tags, { Name = "mcp-hosting-postgres" })
@@ -283,6 +284,13 @@ resource "aws_instance" "app" {
   key_name               = var.ssh_key_name != "" ? var.ssh_key_name : null
 
   associate_public_ip_address = true
+
+  # Require IMDSv2 to prevent unauthenticated metadata access
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 1
+  }
 
   root_block_device {
     volume_size = 30

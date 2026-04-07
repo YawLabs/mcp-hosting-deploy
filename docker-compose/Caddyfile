@@ -8,13 +8,13 @@
 #   - DNS: *.yourdomain.com and yourdomain.com must point to this server
 #   - For wildcard certs, you need a DNS challenge provider (see below)
 
-# Root domain
-{$DOMAIN} {
+# Reusable reverse proxy snippet for MCP-aware proxying
+(mcp_proxy) {
 	reverse_proxy mcp-hosting-app:3000 {
 		# SSE streaming -- disable response buffering
 		flush_interval -1
 
-		# Long timeouts for SSE connections
+		# Long timeouts for SSE / Streamable HTTP connections
 		transport http {
 			response_header_timeout 0
 			dial_timeout 30s
@@ -30,6 +30,22 @@
 		header_up MCP-Session-Id {header.MCP-Session-Id}
 		header_up MCP-Protocol-Version {header.MCP-Protocol-Version}
 	}
+
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	}
+}
+
+# Root domain -- dashboard + API
+{$DOMAIN} {
+	tls {
+		dns cloudflare {env.CF_API_TOKEN}
+	}
+
+	import mcp_proxy
 }
 
 # Wildcard subdomains (e.g., my-server.mcp.example.com)
@@ -38,24 +54,5 @@
 		dns cloudflare {env.CF_API_TOKEN}
 	}
 
-	reverse_proxy mcp-hosting-app:3000 {
-		# SSE streaming -- disable response buffering
-		flush_interval -1
-
-		# Long timeouts for SSE connections
-		transport http {
-			response_header_timeout 0
-			dial_timeout 30s
-			read_timeout 3600s
-			write_timeout 3600s
-		}
-
-		# Forward relevant headers
-		header_up Host {host}
-		header_up X-Real-IP {remote_host}
-		header_up X-Forwarded-For {remote_host}
-		header_up X-Forwarded-Proto {scheme}
-		header_up MCP-Session-Id {header.MCP-Session-Id}
-		header_up MCP-Protocol-Version {header.MCP-Protocol-Version}
-	}
+	import mcp_proxy
 }

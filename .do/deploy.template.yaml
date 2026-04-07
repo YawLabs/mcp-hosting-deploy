@@ -36,7 +36,7 @@ spec:
   databases:
     - name: db
       engine: PG
-      version: "16"
+      version: "17"
     - name: redis
       engine: REDIS
       version: "7"

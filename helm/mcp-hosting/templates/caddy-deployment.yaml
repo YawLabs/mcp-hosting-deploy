@@ -51,15 +51,19 @@ spec:
               mountPath: /data
             - name: caddy-config
               mountPath: /config
-          livenessProbe:
+          startupProbe:
             tcpSocket:
               port: https
             initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            tcpSocket:
+              port: https
             periodSeconds: 15
           readinessProbe:
             tcpSocket:
               port: https
-            initialDelaySeconds: 3
             periodSeconds: 10
           resources:
             {{- toYaml .Values.caddy.resources | nindent 12 }}
@@ -68,7 +72,26 @@ spec:
           configMap:
             name: {{ include "mcp-hosting.fullname" . }}-caddy
         - name: caddy-data
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: {{ include "mcp-hosting.fullname" . }}-caddy-data
         - name: caddy-config
           emptyDir: {}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "mcp-hosting.fullname" . }}-caddy-data
+  namespace: {{ include "mcp-hosting.namespace" . }}
+  labels:
+    {{- include "mcp-hosting.labels" . | nindent 4 }}
+    app.kubernetes.io/component: caddy
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.caddy.storage | default "1Gi" }}
+  {{- if .Values.caddy.storageClass }}
+  storageClassName: {{ .Values.caddy.storageClass }}
+  {{- end }}
 {{- end }}

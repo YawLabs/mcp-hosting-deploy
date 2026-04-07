@@ -123,6 +123,9 @@ caddy:
   image: caddy:2-alpine
   replicas: 2
   serviceType: LoadBalancer
+  # -- Persistent storage for TLS certificates (prevents re-issuance on restart)
+  storage: 1Gi
+  storageClass: ""
 
   resources:
     requests:
@@ -137,8 +140,6 @@ caddy:
 # =============================================================================
 email:
   from: noreply@mcp.example.com
-  # Provider: "ses" or "smtp"
-  provider: ses
   ses:
     region: us-east-1
     accessKeyId: ""

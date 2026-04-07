@@ -5,6 +5,11 @@
 variable "domain" {
   description = "Primary domain for mcp.hosting (e.g. mcp.example.com)"
   type        = string
+
+  validation {
+    condition     = can(regex("^[a-z0-9][a-z0-9.-]+[a-z0-9]$", var.domain))
+    error_message = "domain must be a valid hostname (e.g. mcp.example.com)."
+  }
 }
 
 variable "license_key" {
@@ -17,12 +22,22 @@ variable "db_password" {
   description = "Password for the Cloud SQL PostgreSQL database"
   type        = string
   sensitive   = true
+
+  validation {
+    condition     = length(var.db_password) >= 16
+    error_message = "db_password must be at least 16 characters."
+  }
 }
 
 variable "cookie_secret" {
   description = "Secret used to sign session cookies (random 32+ char string)"
   type        = string
   sensitive   = true
+
+  validation {
+    condition     = length(var.cookie_secret) >= 32
+    error_message = "cookie_secret must be at least 32 characters. Generate with: openssl rand -hex 32"
+  }
 }
 
 variable "project_id" {

@@ -4,8 +4,7 @@ Self-host the [mcp.hosting](https://mcp.hosting) platform on your own infrastruc
 
 ## One-click deploy
 
-<!-- TODO: Replace TEMPLATE_ID with actual Railway template ID once created -->
-[![Deploy to DigitalOcean](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/YawLabs/mcp-hosting-deploy/tree/master) [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template/TEMPLATE_ID) [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/yawlabs/mcp-hosting-deploy) [![Launch Stack](https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/review?stackName=mcp-hosting&templateURL=https://raw.githubusercontent.com/YawLabs/mcp-hosting-deploy/master/cloudformation/ec2/template.yaml)
+[![Deploy to DigitalOcean](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/YawLabs/mcp-hosting-deploy/tree/master) [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/yawlabs/mcp-hosting-deploy) [![Launch Stack](https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/review?stackName=mcp-hosting&templateURL=https://raw.githubusercontent.com/YawLabs/mcp-hosting-deploy/master/cloudformation/ec2/template.yaml)
 
 ## Install
 
@@ -33,6 +32,7 @@ Get a license key at [mcp.hosting/pricing](https://mcp.hosting/pricing).
 - Docker and Docker Compose v2+
 - A domain name (e.g. `mcp.example.com`)
 - DNS: `mcp.example.com` and `*.mcp.example.com` pointing to your server
+- AWS SES credentials for email (required for magic link login)
 
 ## Quick start
 
@@ -51,6 +51,12 @@ docker compose up -d
 
 Your instance will be live at `https://your-domain.com` once Caddy provisions the TLS certificate (usually under a minute).
 
+For production deployments, use the production overlay for resource limits and log rotation:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+```
+
 ## DNS setup
 
 Point both your root domain and a wildcard to your server's IP:
@@ -66,9 +72,13 @@ For wildcard TLS certificates, Caddy uses the DNS challenge. The default Caddyfi
 
 ## Email setup
 
-Magic link authentication requires an email provider. The default configuration uses AWS SES. Set `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `EMAIL_FROM` in your `.env`.
+Magic link authentication requires AWS SES. Set `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `EMAIL_FROM` in your `.env`.
 
-If no AWS credentials are provided, email sending is disabled.
+If no AWS credentials are provided, email sending is disabled and **login will not work**.
+
+## Health check
+
+The app exposes `GET /health` which returns HTTP 200 when the service is running. Point your uptime monitor at `https://mcp.example.com/health`.
 
 ## Upgrading
 
@@ -79,12 +89,30 @@ docker compose up -d
 
 The app container runs database migrations automatically on startup.
 
+## Backups
+
+Use the included backup script for scheduled PostgreSQL backups:
+
+```bash
+# Local backup
+./scripts/backup.sh
+
+# Backup and upload to S3
+./scripts/backup.sh s3://my-bucket/mcp-backups
+
+# Schedule daily backups via cron (2am)
+# 0 2 * * * /path/to/mcp-hosting-deploy/scripts/backup.sh s3://my-bucket/mcp-backups
+```
+
+See [scripts/backup.sh](./scripts/backup.sh) for restore instructions and configuration options.
+
 ## Deploy templates
 
 | Template | Status | Notes |
 |---|---|---|
 | [Docker Compose](./docker-compose/) | Ready | Bundles Postgres for simplicity |
 | [Helm](./helm/) | Ready | Defaults to external database (RDS, Cloud SQL, etc.) |
+| [Cloud Run](./cloudrun/) | Ready | Serverless containers on GCP |
 | [Fly.io](./fly/) | Ready | Managed Postgres & Redis via `fly` CLI |
 | [Railway](./railway/) | Ready | One-click deploy button |
 | [Render](./render/) | Ready | Blueprint with managed Postgres |
@@ -93,6 +121,12 @@ The app container runs database migrations automatically on startup.
 
 > **Helm chart note:** The Helm chart defaults to an **external managed database** (e.g. AWS RDS, Cloud SQL, AlloyDB). Set `externalDatabase.host` and credentials in your values. In-cluster Postgres is available for development by setting `postgres.enabled: true`. In-cluster Valkey is used by default and is fine for production.
 
+## MCP protocol compatibility
+
+This platform uses **Streamable HTTP** as the production transport (per the [MCP spec 2025-11-25](https://modelcontextprotocol.io/specification/2025-11-25)). The Caddy reverse proxy is configured to forward MCP-specific headers (`MCP-Session-Id`, `MCP-Protocol-Version`) and supports long-lived SSE connections.
+
+The licensed proxy tier implements authentication and rate limiting aligned with the MCP specification's OAuth 2.1 requirements for HTTP-based transports.
+
 ## Managed alternative
 
 Don't want to manage infrastructure? Use [mcp.hosting](https://mcp.hosting) -- the fully managed version with the same features, zero ops.
@@ -100,6 +134,10 @@ Don't want to manage infrastructure? Use [mcp.hosting](https://mcp.hosting) -- t
 ## Detailed guide
 
 See [docs/getting-started.md](./docs/getting-started.md) for a step-by-step walkthrough including DNS, email, and production hardening.
+
+## Contributing
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
 
 ## License
 

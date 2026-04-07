@@ -4,6 +4,11 @@
 # Provisions: Resource Group, Container Instances (app + Caddy + Valkey),
 #             Azure Database for PostgreSQL Flexible Server,
 #             Azure Cache for Redis, VNet, NSG.
+#
+# NOTE: For production workloads, consider Azure Container Apps instead of
+# Container Instances. Container Apps provides built-in autoscaling, ingress,
+# and is better suited for long-running services. ACI is used here for
+# simplicity, but has limited scaling and networking capabilities.
 # =============================================================================
 
 terraform {
@@ -274,7 +279,7 @@ resource "azurerm_container_group" "main" {
       secret = {
         # Base64-encoded Caddyfile -- Caddy reverse-proxies to localhost:3000
         "Caddyfile" = base64encode(<<-CADDYFILE
-          {$DOMAIN} {
+          (mcp_proxy) {
             reverse_proxy localhost:3000 {
               flush_interval -1
               transport http {
@@ -283,23 +288,29 @@ resource "azurerm_container_group" "main" {
                 read_timeout 3600s
                 write_timeout 3600s
               }
+              header_up MCP-Session-Id {header.MCP-Session-Id}
+              header_up MCP-Protocol-Version {header.MCP-Protocol-Version}
             }
+            header {
+              X-Content-Type-Options "nosniff"
+              X-Frame-Options "DENY"
+              Referrer-Policy "strict-origin-when-cross-origin"
+              Strict-Transport-Security "max-age=31536000; includeSubDomains"
+            }
+          }
+
+          {$DOMAIN} {
+            tls {
+              dns cloudflare {env.CF_API_TOKEN}
+            }
+            import mcp_proxy
           }
 
           *.{$DOMAIN} {
             tls {
               dns cloudflare {env.CF_API_TOKEN}
             }
-
-            reverse_proxy localhost:3000 {
-              flush_interval -1
-              transport http {
-                response_header_timeout 0
-                dial_timeout 30s
-                read_timeout 3600s
-                write_timeout 3600s
-              }
-            }
+            import mcp_proxy
           }
         CADDYFILE
         )

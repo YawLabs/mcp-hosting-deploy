@@ -1,0 +1,16 @@
+{{- if and .Values.autoscaling.enabled (gt (int .Values.autoscaling.minReplicas) 1) }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "mcp-hosting.fullname" . }}-app
+  namespace: {{ include "mcp-hosting.namespace" . }}
+  labels:
+    {{- include "mcp-hosting.labels" . | nindent 4 }}
+    app.kubernetes.io/component: app
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      {{- include "mcp-hosting.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: app
+{{- end }}

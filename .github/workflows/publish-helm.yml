@@ -15,9 +15,19 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Determine chart version
+        id: version
+        run: |
+          # Use Chart.yaml version + short SHA for uniqueness
+          BASE_VERSION=$(grep '^version:' helm/mcp-hosting/Chart.yaml | awk '{print $2}')
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          echo "version=${BASE_VERSION}+${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "Chart version: ${BASE_VERSION}+${SHORT_SHA}"
       - name: Login to GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
       - name: Package and push
         run: |
-          helm package helm/mcp-hosting
+          helm package helm/mcp-hosting --version "${{ steps.version.outputs.version }}"
           helm push mcp-hosting-*.tgz oci://ghcr.io/yawlabs/charts

@@ -1,0 +1,29 @@
+# Environment files (contain secrets)
+.env
+.env.local
+.env.production
+
+# Terraform state and local config
+.terraform/
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl
+*.tfvars
+!*.tfvars.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker override (local dev)
+docker-compose.override.yml
+
+# Backup artifacts
+*.sql
+*.sql.gz
