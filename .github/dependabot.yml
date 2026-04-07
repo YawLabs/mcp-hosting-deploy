@@ -1,0 +1,39 @@
+version: 2
+updates:
+  # Keep GitHub Actions up to date
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "ci"
+
+  # Keep Docker base images up to date
+  - package-ecosystem: docker
+    directory: /docker-compose
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "deps"
+
+  # Keep Terraform providers up to date
+  - package-ecosystem: terraform
+    directory: /terraform/aws
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "deps"
+
+  - package-ecosystem: terraform
+    directory: /terraform/gcp
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "deps"
+
+  - package-ecosystem: terraform
+    directory: /terraform/azure
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "deps"

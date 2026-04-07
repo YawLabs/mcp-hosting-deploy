@@ -1,0 +1,66 @@
+name: Validate Templates
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+
+jobs:
+  helm-lint:
+    name: Lint Helm Chart
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+      - name: Lint chart
+        run: helm lint helm/mcp-hosting --strict
+
+  terraform-validate:
+    name: Validate Terraform
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    strategy:
+      matrix:
+        dir: [terraform/aws, terraform/gcp, terraform/azure]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+      - name: Init
+        run: terraform -chdir=${{ matrix.dir }} init -backend=false
+      - name: Validate
+        run: terraform -chdir=${{ matrix.dir }} validate
+
+  yaml-lint:
+    name: Lint YAML
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install yamllint
+        run: pip install yamllint
+      - name: Lint YAML files
+        run: |
+          yamllint -d '{extends: relaxed, rules: {line-length: {max: 200}}}' \
+            docker-compose/docker-compose.yml \
+            docker-compose/docker-compose.prod.yml \
+            .do/deploy.template.yaml \
+            render/render.yaml \
+            cloudrun/service.yaml
+
+  docker-compose-validate:
+    name: Validate Docker Compose
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate docker-compose.yml
+        run: docker compose -f docker-compose/docker-compose.yml config --quiet
+      - name: Validate docker-compose.prod.yml overlay
+        run: docker compose -f docker-compose/docker-compose.yml -f docker-compose/docker-compose.prod.yml config --quiet

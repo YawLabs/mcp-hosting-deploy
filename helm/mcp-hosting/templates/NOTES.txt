@@ -1,0 +1,51 @@
+
+mcp.hosting has been deployed to namespace "{{ include "mcp-hosting.namespace" . }}".
+
+{{- if .Values.caddy.enabled }}
+
+Access your instance:
+
+  Dashboard:  https://{{ .Values.domain }}
+  MCP servers: https://<server-name>.{{ .Values.domain }}
+
+  Caddy is provisioning TLS certificates automatically.
+  First-time certificate issuance may take up to 2 minutes.
+
+  External IP (check LoadBalancer status):
+    kubectl get svc {{ include "mcp-hosting.fullname" . }}-caddy -n {{ include "mcp-hosting.namespace" . }}
+{{- end }}
+
+{{- if not .Values.externalDatabase.host }}
+{{- if .Values.postgres.enabled }}
+
+WARNING: You are running PostgreSQL inside the cluster.
+  This is suitable for development/testing only.
+  For production, set externalDatabase.host to a managed service (RDS, Cloud SQL, etc.)
+  and disable in-cluster Postgres with: --set postgres.enabled=false
+{{- else }}
+
+ERROR: No database configured.
+  Set externalDatabase.host or enable in-cluster Postgres with: --set postgres.enabled=true
+{{- end }}
+{{- end }}
+
+{{- if not (or .Values.email.ses.accessKeyId) }}
+
+NOTE: No email credentials configured. Magic link login will not work.
+  Configure AWS SES credentials:
+    --set email.ses.accessKeyId=AKIA...
+    --set email.ses.secretAccessKey=...
+{{- end }}
+
+Useful commands:
+
+  # Check pod status
+  kubectl get pods -n {{ include "mcp-hosting.namespace" . }}
+
+  # View app logs
+  kubectl logs -n {{ include "mcp-hosting.namespace" . }} -l app.kubernetes.io/component=app -f
+
+  # Upgrade to latest version
+  helm upgrade {{ .Release.Name }} oci://ghcr.io/yawlabs/charts/mcp-hosting
+
+Documentation: https://github.com/yawlabs/mcp-hosting-deploy/blob/master/docs/getting-started.md
