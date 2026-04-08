@@ -217,6 +217,33 @@ cleanup_all() {
         sleep 5
       fi
 
+      # Clean up Route53 hosted zone records (non-default records block zone deletion)
+      local zone_id
+      zone_id=$(aws cloudformation describe-stack-resources \
+        --stack-name "$stack_name" \
+        --query 'StackResources[?ResourceType==`AWS::Route53::HostedZone`].PhysicalResourceId' \
+        --output text --region "$AWS_REGION" 2>/dev/null || echo "")
+      if [[ -n "$zone_id" && "$zone_id" != "None" ]]; then
+        log "Cleaning non-default records from hosted zone $zone_id..."
+        local changes
+        changes=$(aws route53 list-resource-record-sets --hosted-zone-id "$zone_id" \
+          --query 'ResourceRecordSets[?Type!=`NS` && Type!=`SOA`]' --output json 2>/dev/null || echo "[]")
+        local num_records
+        num_records=$(echo "$changes" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
+        if (( num_records > 0 )); then
+          local batch
+          batch=$(echo "$changes" | python3 -c "
+import sys, json
+records = json.load(sys.stdin)
+changes = [{'Action': 'DELETE', 'ResourceRecordSet': r} for r in records]
+print(json.dumps({'Changes': changes}))
+")
+          aws route53 change-resource-record-sets --hosted-zone-id "$zone_id" \
+            --change-batch "$batch" --region "$AWS_REGION" 2>/dev/null || true
+          log "Deleted $num_records record(s) from hosted zone."
+        fi
+      fi
+
       aws cloudformation delete-stack --stack-name "$stack_name" --region "$AWS_REGION" 2>/dev/null || true
       log "Waiting for stack deletion: $stack_name"
       aws cloudformation wait stack-delete-complete \
@@ -255,7 +282,7 @@ cleanup_orphaned_resources() {
   cutoff=$(date -u -d '2 hours ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || \
            date -u -v-2H +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo "")
 
-  # Find orphaned CloudFormation stacks
+  # Find orphaned CloudFormation stacks (active)
   local stacks
   stacks=$(aws cloudformation describe-stacks \
     --query 'Stacks[?Tags[?Key==`Project` && Value==`mcp-hosting-test`]].{Name:StackName,Created:CreationTime}' \
@@ -265,7 +292,7 @@ cleanup_orphaned_resources() {
   count=$(echo "$stacks" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
 
   if (( count > 0 )); then
-    log "Found $count test stack(s)"
+    log "Found $count active test stack(s)"
     echo "$stacks" | python3 -c "
 import sys, json
 for s in json.load(sys.stdin):
@@ -274,7 +301,31 @@ for s in json.load(sys.stdin):
       CLEANUP_CFN_STACKS+=("$stack_name")
     done
     cleanup_all
-  else
+  fi
+
+  # Find DELETE_FAILED stacks (stuck on resources like Route53 hosted zones)
+  local failed_stacks
+  failed_stacks=$(aws cloudformation list-stacks \
+    --stack-status-filter DELETE_FAILED \
+    --query 'StackSummaries[?starts_with(StackName, `mcp-test`)].StackName' \
+    --output text --region "$AWS_REGION" 2>/dev/null || echo "")
+  if [[ -n "$failed_stacks" ]]; then
+    log "Found DELETE_FAILED stacks: $failed_stacks"
+    for stack_name in $failed_stacks; do
+      # Clean up hosted zone (most common blocker for stack deletion)
+      local zone_id
+      zone_id=$(aws cloudformation describe-stack-resources --stack-name "$stack_name" \
+        --query 'StackResources[?ResourceType==`AWS::Route53::HostedZone`].PhysicalResourceId' \
+        --output text --region "$AWS_REGION" 2>/dev/null || echo "")
+      if [[ -n "$zone_id" && "$zone_id" != "None" ]]; then
+        log "Deleting orphaned hosted zone $zone_id from $stack_name"
+        aws route53 delete-hosted-zone --id "$zone_id" 2>/dev/null || true
+      fi
+      aws cloudformation delete-stack --stack-name "$stack_name" --region "$AWS_REGION" 2>/dev/null || true
+    done
+  fi
+
+  if [[ "$count" == "0" && -z "$failed_stacks" ]]; then
     log "No orphaned resources found."
   fi
 
@@ -287,6 +338,58 @@ for s in json.load(sys.stdin):
   if [[ -n "$instances" ]]; then
     log "Terminating orphaned instances: $instances"
     aws ec2 terminate-instances --instance-ids $instances --region "$AWS_REGION" 2>/dev/null || true
+  fi
+
+  # Clean up orphaned terraform resources (hardcoded names in default VPC)
+  # ElastiCache replication group
+  if aws elasticache describe-replication-groups --replication-group-id mcp-hosting \
+       --region "$AWS_REGION" >/dev/null 2>&1; then
+    log "Deleting orphaned ElastiCache replication group..."
+    aws elasticache delete-replication-group --replication-group-id mcp-hosting \
+      --region "$AWS_REGION" 2>/dev/null || true
+  fi
+
+  # ElastiCache subnet group (may fail if replication group is still deleting)
+  aws elasticache delete-cache-subnet-group --cache-subnet-group-name mcp-hosting-cache-subnet \
+    --region "$AWS_REGION" 2>/dev/null || true
+
+  # Orphaned RDS instances (use name_prefix so match with starts_with)
+  local rds_instances
+  rds_instances=$(aws rds describe-db-instances \
+    --query "DBInstances[?starts_with(DBInstanceIdentifier,'mcp-hosting-2')].DBInstanceIdentifier" \
+    --output text --region "$AWS_REGION" 2>/dev/null || echo "")
+  if [[ -n "$rds_instances" ]]; then
+    for db_id in $rds_instances; do
+      log "Deleting orphaned RDS instance: $db_id"
+      aws rds delete-db-instance --db-instance-identifier "$db_id" --skip-final-snapshot \
+        --region "$AWS_REGION" 2>/dev/null || true
+    done
+  fi
+
+  # Orphaned RDS subnet groups
+  local rds_subnet_groups
+  rds_subnet_groups=$(aws rds describe-db-subnet-groups \
+    --query "DBSubnetGroups[?starts_with(DBSubnetGroupName,'mcp-hosting-2')].DBSubnetGroupName" \
+    --output text --region "$AWS_REGION" 2>/dev/null || echo "")
+  if [[ -n "$rds_subnet_groups" ]]; then
+    for sg_name in $rds_subnet_groups; do
+      log "Deleting orphaned RDS subnet group: $sg_name"
+      aws rds delete-db-subnet-group --db-subnet-group-name "$sg_name" \
+        --region "$AWS_REGION" 2>/dev/null || true
+    done
+  fi
+
+  # Orphaned security groups (name_prefix mcp-hosting- in default VPC)
+  local orphan_sgs
+  orphan_sgs=$(aws ec2 describe-security-groups \
+    --filters "Name=group-name,Values=mcp-hosting-*" \
+    --query "SecurityGroups[].GroupId" \
+    --output text --region "$AWS_REGION" 2>/dev/null || echo "")
+  if [[ -n "$orphan_sgs" ]]; then
+    for sg_id in $orphan_sgs; do
+      log "Deleting orphaned security group: $sg_id"
+      aws ec2 delete-security-group --group-id "$sg_id" --region "$AWS_REGION" 2>/dev/null || true
+    done
   fi
 }
 
@@ -335,6 +438,9 @@ EOF
   # Start services (skip Caddy -- needs real domain for TLS)
   log "Starting Docker Compose (postgres, redis, app)..."
   if ! docker compose -f "$compose_dir/docker-compose.yml" up -d postgres redis mcp-hosting-app 2>&1; then
+    log "Docker Compose startup failed. Container logs:"
+    docker compose -f "$compose_dir/docker-compose.yml" logs --tail=30 2>&1 || true
+    docker compose -f "$compose_dir/docker-compose.yml" down -v 2>/dev/null || true
     rm -f "$compose_dir/.env"
     record_result "docker-compose" "fail" $((SECONDS - start_time)) "docker compose up failed"
     return 0
@@ -435,12 +541,25 @@ test_cfn_ec2() {
 
   log "Stack created. Public IP: $public_ip"
 
-  # Wait for app to be ready (cloud-init + docker pull + startup)
-  log "Waiting for health check at http://$public_ip/health (up to 5 min)..."
-  if wait_for_health "http://${public_ip}/health" 300 10; then
+  # Wait for app to be ready (cloud-init + docker install + pull + startup can take 7-10 min)
+  log "Waiting for health check at http://$public_ip/health (up to 10 min)..."
+  if wait_for_health "http://${public_ip}/health" 600 15; then
     record_result "cfn-ec2" "pass" $((SECONDS - start_time)) "Health check passed at http://${public_ip}/health"
   else
-    record_result "cfn-ec2" "fail" $((SECONDS - start_time)) "Health check failed after 5 min"
+    # Capture cloud-init log via SSM for debugging
+    log "Health check failed. Checking cloud-init status via SSM..."
+    local instance_id
+    instance_id=$(aws cloudformation describe-stack-resources \
+      --stack-name "$stack_name" \
+      --query 'StackResources[?ResourceType==`AWS::EC2::Instance`].PhysicalResourceId' \
+      --output text --region "$AWS_REGION" 2>/dev/null || echo "")
+    if [[ -n "$instance_id" ]] && wait_for_ssm_agent "$instance_id" 60; then
+      log "Cloud-init log (last 30 lines):"
+      ssm_run_command "$instance_id" "tail -30 /var/log/mcp-hosting-init.log 2>/dev/null || tail -30 /var/log/cloud-init-output.log 2>/dev/null || echo 'No init log found'" 15 2>&1 || true
+      log "Docker status:"
+      ssm_run_command "$instance_id" "docker ps -a 2>/dev/null && docker compose -f /opt/mcp-hosting/docker-compose.yml logs --tail=10 2>/dev/null || echo 'Docker not ready'" 15 2>&1 || true
+    fi
+    record_result "cfn-ec2" "fail" $((SECONDS - start_time)) "Health check failed after 10 min"
   fi
 }
 
@@ -465,8 +584,22 @@ test_terraform_aws() {
 
   # Pre-cleanup: remove any leftover resources with hardcoded names from previous runs
   log "Checking for leftover resources from previous runs..."
-  aws elasticache delete-replication-group --replication-group-id mcp-hosting --no-final-snapshot \
-    --region "$AWS_REGION" 2>/dev/null && log "Deleted leftover ElastiCache replication group" || true
+  if aws elasticache describe-replication-groups --replication-group-id mcp-hosting \
+       --region "$AWS_REGION" >/dev/null 2>&1; then
+    aws elasticache delete-replication-group --replication-group-id mcp-hosting \
+      --region "$AWS_REGION" 2>/dev/null && log "Deleting leftover ElastiCache replication group..." || true
+    # Wait for replication group to finish deleting (subnet group depends on it)
+    local ec_wait=0
+    while (( ec_wait < 300 )); do
+      if ! aws elasticache describe-replication-groups --replication-group-id mcp-hosting \
+           --region "$AWS_REGION" >/dev/null 2>&1; then
+        log "ElastiCache replication group deleted."
+        break
+      fi
+      sleep 15
+      ((ec_wait += 15))
+    done
+  fi
   aws elasticache delete-cache-subnet-group --cache-subnet-group-name mcp-hosting-cache-subnet \
     --region "$AWS_REGION" 2>/dev/null && log "Deleted leftover ElastiCache subnet group" || true
   aws rds delete-db-subnet-group --db-subnet-group-name mcp-hosting- \
@@ -535,6 +668,30 @@ test_terraform_aws() {
 test_cfn_ecs_fargate() {
   local start_time=$SECONDS
   log "--- Testing: CloudFormation ECS Fargate ---"
+
+  # Pre-cleanup: wait for any leftover ECS test stacks to finish deleting
+  # (hardcoded resource names like mcp-hosting-alb, mcp-hosting-db will collide)
+  local leftover_stacks
+  leftover_stacks=$(aws cloudformation list-stacks \
+    --stack-status-filter CREATE_FAILED DELETE_FAILED ROLLBACK_COMPLETE DELETE_IN_PROGRESS \
+    --query 'StackSummaries[?starts_with(StackName, `mcp-test-ecs`)].StackName' \
+    --output text --region "$AWS_REGION" 2>/dev/null || echo "")
+  if [[ -n "$leftover_stacks" ]]; then
+    log "Cleaning up leftover ECS test stacks: $leftover_stacks"
+    for old_stack in $leftover_stacks; do
+      # Clean hosted zone records that block deletion
+      local old_zone_id
+      old_zone_id=$(aws cloudformation describe-stack-resources --stack-name "$old_stack" \
+        --query 'StackResources[?ResourceType==`AWS::Route53::HostedZone`].PhysicalResourceId' \
+        --output text --region "$AWS_REGION" 2>/dev/null || echo "")
+      if [[ -n "$old_zone_id" && "$old_zone_id" != "None" ]]; then
+        aws route53 delete-hosted-zone --id "$old_zone_id" 2>/dev/null || true
+      fi
+      aws cloudformation delete-stack --stack-name "$old_stack" --region "$AWS_REGION" 2>/dev/null || true
+    done
+    # Wait briefly for deletions to propagate
+    sleep 10
+  fi
 
   local stack_name="mcp-test-ecs-${RUN_ID}"
   CLEANUP_CFN_STACKS+=("$stack_name")
@@ -622,6 +779,11 @@ print(json.dumps([{'Value': n} for n in ns]))
         break
         ;;
       CREATE_FAILED|ROLLBACK_COMPLETE|ROLLBACK_IN_PROGRESS|DELETE_IN_PROGRESS)
+        log "Stack creation failed ($stack_status). Recent events:"
+        aws cloudformation describe-stack-events \
+          --stack-name "$stack_name" \
+          --query 'StackEvents[?ResourceStatus==`CREATE_FAILED`].[LogicalResourceId,ResourceStatusReason]' \
+          --output text --region "$AWS_REGION" 2>/dev/null | head -10 || true
         record_result "cfn-ecs-fargate" "fail" $((SECONDS - start_time)) "Stack creation failed: $stack_status"
         return 0
         ;;
