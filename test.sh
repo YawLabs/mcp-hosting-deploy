@@ -229,9 +229,11 @@ cleanup_all() {
   for tf_dir in "${CLEANUP_TF_DIRS[@]:-}"; do
     if [[ -n "$tf_dir" && -d "$tf_dir" ]]; then
       log "Running terraform destroy in: $tf_dir"
-      terraform -chdir="$tf_dir" destroy -auto-approve -input=false 2>/dev/null || \
-        log "Warning: terraform destroy may have failed in $tf_dir"
-      rm -rf "$tf_dir"
+      if terraform -chdir="$tf_dir" destroy -auto-approve -input=false 2>/dev/null; then
+        rm -rf "$tf_dir"
+      else
+        log "Warning: terraform destroy failed in $tf_dir -- state preserved for manual cleanup"
+      fi
     fi
   done
 
@@ -321,6 +323,15 @@ AWS_SECRET_ACCESS_KEY=
 CF_API_TOKEN=
 EOF
 
+  # Pull image first to detect auth issues early
+  log "Pulling Docker image..."
+  if ! docker compose -f "$compose_dir/docker-compose.yml" pull mcp-hosting-app 2>&1; then
+    rm -f "$compose_dir/.env"
+    record_result "docker-compose" "skip" $((SECONDS - start_time)) \
+      "Image pull failed (GHCR auth required -- set GHCR_TOKEN secret or make package public)"
+    return 0
+  fi
+
   # Start services (skip Caddy -- needs real domain for TLS)
   log "Starting Docker Compose (postgres, redis, app)..."
   if ! docker compose -f "$compose_dir/docker-compose.yml" up -d postgres redis mcp-hosting-app 2>&1; then
@@ -394,7 +405,7 @@ test_cfn_ec2() {
       "ParameterKey=DomainName,ParameterValue=${TEST_DOMAIN}" \
       "ParameterKey=InstanceType,ParameterValue=t4g.small" \
     --capabilities CAPABILITY_IAM \
-    --on-failure DELETE \
+    --on-failure DO_NOTHING \
     --tags "Key=Project,Value=mcp-hosting-test" "Key=RunId,Value=${RUN_ID}" \
     --region "$AWS_REGION" 2>&1; then
     record_result "cfn-ec2" "fail" $((SECONDS - start_time)) "create-stack failed"
@@ -405,7 +416,13 @@ test_cfn_ec2() {
   log "Waiting for stack creation (up to 15 min)..."
   if ! timeout 900 aws cloudformation wait stack-create-complete \
     --stack-name "$stack_name" --region "$AWS_REGION" 2>&1; then
-    record_result "cfn-ec2" "fail" $((SECONDS - start_time)) "Stack creation timed out or failed"
+    # Capture failed resource events for debugging
+    log "Stack creation failed. Recent events:"
+    aws cloudformation describe-stack-events \
+      --stack-name "$stack_name" \
+      --query 'StackEvents[?ResourceStatus==`CREATE_FAILED`].[LogicalResourceId,ResourceStatusReason]' \
+      --output text --region "$AWS_REGION" 2>/dev/null | head -10 || true
+    record_result "cfn-ec2" "fail" $((SECONDS - start_time)) "Stack creation failed -- check CI logs for event details"
     return 0
   fi
 
@@ -445,6 +462,15 @@ test_terraform_aws() {
   local db_pass cookie_secret
   db_pass="$(generate_password 32)"
   cookie_secret="$(generate_password 64)"
+
+  # Pre-cleanup: remove any leftover resources with hardcoded names from previous runs
+  log "Checking for leftover resources from previous runs..."
+  aws elasticache delete-replication-group --replication-group-id mcp-hosting --no-final-snapshot \
+    --region "$AWS_REGION" 2>/dev/null && log "Deleted leftover ElastiCache replication group" || true
+  aws elasticache delete-cache-subnet-group --cache-subnet-group-name mcp-hosting-cache-subnet \
+    --region "$AWS_REGION" 2>/dev/null && log "Deleted leftover ElastiCache subnet group" || true
+  aws rds delete-db-subnet-group --db-subnet-group-name mcp-hosting- \
+    --region "$AWS_REGION" 2>/dev/null || true
 
   # terraform init
   log "Running terraform init..."
@@ -526,7 +552,7 @@ test_cfn_ecs_fargate() {
       "ParameterKey=DBPassword,ParameterValue=${db_pass}" \
       "ParameterKey=DesiredCount,ParameterValue=1" \
     --capabilities CAPABILITY_IAM \
-    --on-failure DELETE \
+    --on-failure DO_NOTHING \
     --tags "Key=Project,Value=mcp-hosting-test" "Key=RunId,Value=${RUN_ID}" \
     --timeout-in-minutes 30 \
     --region "$AWS_REGION" 2>&1; then
