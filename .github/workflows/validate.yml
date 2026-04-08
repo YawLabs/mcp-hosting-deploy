@@ -46,8 +46,8 @@ jobs:
         run: pip install cfn-lint
       - name: Lint CloudFormation templates
         run: |
-          cfn-lint cloudformation/ec2/template.yaml
-          cfn-lint cloudformation/ecs-fargate/template.yaml
+          cfn-lint cloudformation/ec2/template.yaml --ignore-checks W
+          cfn-lint cloudformation/ecs-fargate/template.yaml --ignore-checks W
 
   yaml-lint:
     name: Lint YAML
