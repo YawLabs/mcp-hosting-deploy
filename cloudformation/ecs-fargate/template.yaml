@@ -215,7 +215,7 @@ Resources:
   ALBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: ALB — allow HTTP/HTTPS from internet
+      GroupDescription: ALB - allow HTTP/HTTPS from internet
       VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -235,7 +235,7 @@ Resources:
   ECSSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: ECS tasks — allow traffic from ALB only
+      GroupDescription: ECS tasks - allow traffic from ALB only
       VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -250,7 +250,7 @@ Resources:
   RDSSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: RDS — allow traffic from ECS only
+      GroupDescription: RDS - allow traffic from ECS only
       VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -265,7 +265,7 @@ Resources:
   CacheSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: ElastiCache — allow traffic from ECS only
+      GroupDescription: ElastiCache - allow traffic from ECS only
       VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
