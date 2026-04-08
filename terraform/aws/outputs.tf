@@ -22,6 +22,11 @@ output "elasticache_endpoint" {
   value       = aws_elasticache_cluster.valkey.cache_nodes[0].address
 }
 
+output "instance_id" {
+  description = "EC2 instance ID (for SSM Session Manager access)"
+  value       = aws_instance.app.id
+}
+
 output "next_steps" {
   description = "What to do after terraform apply"
   value       = <<-EOT

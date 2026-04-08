@@ -1,5 +1,7 @@
 # mcp.hosting Self-Hosted Deploy
 
+[![Validate Templates](https://github.com/YawLabs/mcp-hosting-deploy/actions/workflows/validate.yml/badge.svg)](https://github.com/YawLabs/mcp-hosting-deploy/actions/workflows/validate.yml) [![mcp.hosting tested](./test-results/badge.svg)](https://mcp.hosting/verified)
+
 Self-host the [mcp.hosting](https://mcp.hosting) platform on your own infrastructure. One deployment -- a license key determines what features are enabled.
 
 ## One-click deploy
@@ -120,6 +122,27 @@ See [scripts/backup.sh](./scripts/backup.sh) for restore instructions and config
 | [Terraform](./terraform/) | Ready | Multi-cloud (AWS, GCP, Azure) |
 
 > **Helm chart note:** The Helm chart defaults to an **external managed database** (e.g. AWS RDS, Cloud SQL, AlloyDB). Set `externalDatabase.host` and credentials in your values. In-cluster Postgres is available for development by setting `postgres.enabled: true`. In-cluster Valkey is used by default and is fine for production.
+
+## Testing
+
+Deploy templates are tested weekly against real infrastructure. Each test deploys the full template, verifies the application health check, and tears down all resources. See [test-results/](./test-results/) for the latest run.
+
+| Template | Tested | Method |
+|---|---|---|
+| CloudFormation EC2 | Yes | Full AWS deploy + HTTP health check |
+| CloudFormation ECS Fargate | Yes | Full AWS deploy + ECS/ALB status |
+| Terraform AWS | Yes | Full AWS deploy + SSM health check |
+| Docker Compose | Yes | Local Docker health check |
+| Helm | Planned | Needs Kubernetes cluster |
+| Cloud Run | Planned | Needs GCP |
+| Terraform GCP | Planned | Needs GCP |
+| Terraform Azure | Planned | Needs Azure |
+| Fly.io | Planned | Needs account |
+| DigitalOcean | Planned | Needs account |
+| Render | Planned | Needs account |
+| Railway | Planned | Needs account |
+
+Templates are also scanned with [Checkov](https://www.checkov.io/) for security best practices, and cost estimates are generated via [Infracost](https://www.infracost.io/).
 
 ## MCP protocol compatibility
 

@@ -94,6 +94,12 @@ variable "cf_api_token" {
   default     = ""
 }
 
+variable "skip_final_snapshot" {
+  description = "Skip the final RDS snapshot on destroy (useful for testing)"
+  type        = bool
+  default     = false
+}
+
 variable "tags" {
   description = "Tags applied to all resources"
   type        = map(string)

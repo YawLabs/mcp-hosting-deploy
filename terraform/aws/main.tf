@@ -244,8 +244,8 @@ resource "aws_db_instance" "postgres" {
   password               = var.db_password
   db_subnet_group_name   = aws_db_subnet_group.main.name
   vpc_security_group_ids = [aws_security_group.rds.id]
-  skip_final_snapshot       = false
-  final_snapshot_identifier = "mcp-hosting-final-${formatdate("YYYY-MM-DD", timestamp())}"
+  skip_final_snapshot       = var.skip_final_snapshot
+  final_snapshot_identifier = var.skip_final_snapshot ? null : "mcp-hosting-final-${formatdate("YYYY-MM-DD", timestamp())}"
   publicly_accessible    = false
   multi_az               = false
   tags                   = merge(var.tags, { Name = "mcp-hosting-postgres" })
@@ -273,6 +273,33 @@ resource "aws_elasticache_cluster" "valkey" {
 }
 
 # -----------------------------------------------------------------------------
+# IAM Role -- enables SSM Session Manager (no SSH key required)
+# -----------------------------------------------------------------------------
+
+resource "aws_iam_role" "app" {
+  name_prefix = "mcp-hosting-app-"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = { Service = "ec2.amazonaws.com" }
+    }]
+  })
+  tags = var.tags
+}
+
+resource "aws_iam_role_policy_attachment" "ssm" {
+  role       = aws_iam_role.app.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+resource "aws_iam_instance_profile" "app" {
+  name_prefix = "mcp-hosting-app-"
+  role        = aws_iam_role.app.name
+}
+
+# -----------------------------------------------------------------------------
 # EC2 Instance -- runs Docker Compose
 # -----------------------------------------------------------------------------
 
@@ -281,6 +308,7 @@ resource "aws_instance" "app" {
   instance_type          = var.instance_type
   subnet_id              = local.subnet_ids[0]
   vpc_security_group_ids = [aws_security_group.app.id]
+  iam_instance_profile   = aws_iam_instance_profile.app.name
   key_name               = var.ssh_key_name != "" ? var.ssh_key_name : null
 
   associate_public_ip_address = true

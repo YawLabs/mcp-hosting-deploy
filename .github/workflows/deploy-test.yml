@@ -1,0 +1,186 @@
+name: Deploy Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      templates:
+        description: "Comma-separated list or 'all'"
+        default: "all"
+      skip_teardown:
+        description: "Leave test resources running (for debugging)"
+        type: boolean
+        default: false
+  schedule:
+    - cron: "0 6 * * 1" # Weekly Monday 6 AM UTC
+
+concurrency:
+  group: deploy-test
+  cancel-in-progress: false # Never cancel a running deploy
+
+permissions:
+  contents: write
+  id-token: write
+  security-events: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Checkov security scan (runs in parallel with deploy tests)
+  # ---------------------------------------------------------------------------
+  checkov:
+    name: Checkov Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Checkov
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: .
+          framework: cloudformation,terraform,kubernetes,helm
+          output_format: cli,sarif,json
+          output_file_path: console,test-results/checkov.sarif,test-results/checkov.json
+          soft_fail: true
+
+      - name: Upload SARIF to GitHub Security
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: test-results/checkov.sarif
+
+      - name: Upload Checkov results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: checkov-results
+          path: test-results/checkov.json
+
+  # ---------------------------------------------------------------------------
+  # Infracost estimates (runs in parallel)
+  # ---------------------------------------------------------------------------
+  infracost:
+    name: Infracost Estimates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Infracost
+        uses: infracost/actions/setup@v3
+        with:
+          api-key: ${{ secrets.INFRACOST_API_KEY }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Terraform AWS estimate
+        run: |
+          terraform -chdir=terraform/aws init -backend=false
+          infracost breakdown --path terraform/aws \
+            --format json --out-file test-results/cost-terraform-aws.json \
+            --terraform-var-file <(echo 'domain="estimate.example.com"
+            license_key="x"
+            db_password="xxxxxxxxxxxxxxxx"
+            cookie_secret="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"') \
+            2>/dev/null || echo '{"totalMonthlyCost": "N/A"}' > test-results/cost-terraform-aws.json
+
+      - name: Terraform GCP estimate
+        run: |
+          terraform -chdir=terraform/gcp init -backend=false
+          infracost breakdown --path terraform/gcp \
+            --format json --out-file test-results/cost-terraform-gcp.json \
+            2>/dev/null || echo '{"totalMonthlyCost": "N/A"}' > test-results/cost-terraform-gcp.json
+
+      - name: Terraform Azure estimate
+        run: |
+          terraform -chdir=terraform/azure init -backend=false
+          infracost breakdown --path terraform/azure \
+            --format json --out-file test-results/cost-terraform-azure.json \
+            2>/dev/null || echo '{"totalMonthlyCost": "N/A"}' > test-results/cost-terraform-azure.json
+
+      - name: Upload cost estimates
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: infracost-results
+          path: test-results/cost-*.json
+
+  # ---------------------------------------------------------------------------
+  # Deploy tests (the main event)
+  # ---------------------------------------------------------------------------
+  deploy-test:
+    name: Deploy Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Run deploy tests
+        run: |
+          template="${{ inputs.templates || 'all' }}"
+          args=""
+          if [[ "$template" != "all" ]]; then
+            args="--template=$template"
+          fi
+          if [[ "${{ inputs.skip_teardown }}" == "true" ]]; then
+            args="$args --skip-teardown"
+          fi
+          bash test.sh $args --results-dir=test-results
+        env:
+          AWS_REGION: us-east-1
+          TEST_DOMAIN: ${{ vars.TEST_DOMAIN }}
+          TEST_DOMAIN_ZONE_ID: ${{ vars.TEST_DOMAIN_ZONE_ID }}
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-test-results-${{ github.run_id }}
+          path: test-results/
+
+      - name: Publish JUnit results
+        if: always()
+        uses: mikepenz/action-junit-report@v5
+        with:
+          report_paths: test-results/junit.xml
+          check_name: Deploy Test Results
+
+      - name: Commit results and badge
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add test-results/latest.json test-results/badge.svg
+          git diff --staged --quiet || git commit -m "Update deploy test results [skip ci]"
+          git push
+
+      - name: Emergency cleanup
+        if: always()
+        run: bash test.sh --cleanup-only
+        env:
+          AWS_REGION: us-east-1
+
+      - name: Notify on failure
+        if: failure() && github.event_name == 'schedule'
+        uses: slackapi/slack-github-action@v2
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": "Deploy tests failed: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }
