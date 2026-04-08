@@ -261,15 +261,16 @@ resource "aws_elasticache_subnet_group" "main" {
   tags       = merge(var.tags, { Name = "mcp-hosting-cache-subnet" })
 }
 
-resource "aws_elasticache_cluster" "valkey" {
-  cluster_id         = "mcp-hosting"
-  engine             = "valkey"
-  node_type          = var.cache_node_type
-  num_cache_nodes    = 1
-  port               = 6379
-  subnet_group_name  = aws_elasticache_subnet_group.main.name
-  security_group_ids = [aws_security_group.cache.id]
-  tags               = merge(var.tags, { Name = "mcp-hosting-valkey" })
+resource "aws_elasticache_replication_group" "valkey" {
+  replication_group_id = "mcp-hosting"
+  description          = "mcp-hosting Valkey cache"
+  engine               = "valkey"
+  node_type            = var.cache_node_type
+  num_cache_clusters   = 1
+  port                 = 6379
+  subnet_group_name    = aws_elasticache_subnet_group.main.name
+  security_group_ids   = [aws_security_group.cache.id]
+  tags                 = merge(var.tags, { Name = "mcp-hosting-valkey" })
 }
 
 # -----------------------------------------------------------------------------
@@ -330,7 +331,7 @@ resource "aws_instance" "app" {
     license_key      = var.license_key
     db_host          = aws_db_instance.postgres.address
     db_password      = var.db_password
-    redis_host       = aws_elasticache_cluster.valkey.cache_nodes[0].address
+    redis_host       = aws_elasticache_replication_group.valkey.primary_endpoint_address
     cookie_secret    = var.cookie_secret
     cf_api_token     = var.cf_api_token
   }))
@@ -339,6 +340,6 @@ resource "aws_instance" "app" {
 
   depends_on = [
     aws_db_instance.postgres,
-    aws_elasticache_cluster.valkey,
+    aws_elasticache_replication_group.valkey,
   ]
 }

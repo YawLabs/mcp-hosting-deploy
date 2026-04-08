@@ -19,7 +19,7 @@ output "rds_endpoint" {
 
 output "elasticache_endpoint" {
   description = "ElastiCache Valkey endpoint"
-  value       = aws_elasticache_cluster.valkey.cache_nodes[0].address
+  value       = aws_elasticache_replication_group.valkey.primary_endpoint_address
 }
 
 output "instance_id" {

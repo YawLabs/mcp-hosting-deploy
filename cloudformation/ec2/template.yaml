@@ -38,6 +38,11 @@ Parameters:
     Default: ""
     Description: Optional EC2 key pair name for SSH access. Leave empty to disable SSH.
 
+  AllowedSSHCidr:
+    Type: String
+    Default: ""
+    Description: CIDR block allowed to SSH (e.g. 203.0.113.10/32). Leave empty to use SSM instead.
+
   EmailFrom:
     Type: String
     Default: ""
@@ -48,6 +53,10 @@ Parameters:
 # ---------------------------------------------------------------------------
 Conditions:
   HasKeyPair: !Not [!Equals [!Ref KeyPairName, ""]]
+  HasSSHCidr: !Not [!Equals [!Ref AllowedSSHCidr, ""]]
+  EnableSSH: !And
+    - !Condition HasKeyPair
+    - !Condition HasSSHCidr
   HasLicenseKey: !Not [!Equals [!Ref LicenseKey, ""]]
   HasEmailFrom: !Not [!Equals [!Ref EmailFrom, ""]]
 
@@ -157,11 +166,11 @@ Resources:
           CidrIp: 0.0.0.0/0
           Description: HTTPS
         - !If
-          - HasKeyPair
+          - EnableSSH
           - IpProtocol: tcp
             FromPort: 22
             ToPort: 22
-            CidrIp: 0.0.0.0/0
+            CidrIp: !Ref AllowedSSHCidr
             Description: SSH
           - !Ref AWS::NoValue
       Tags:
@@ -260,7 +269,7 @@ Resources:
                   environment:
                     POSTGRES_DB: mcp_hosting
                     POSTGRES_USER: mcp_admin
-                    POSTGRES_PASSWORD: ${DB_PASSWORD}
+                    POSTGRES_PASSWORD: ${!DB_PASSWORD}
                   volumes:
                     - pgdata:/var/lib/postgresql/data
                   healthcheck:
@@ -285,15 +294,15 @@ Resources:
                   environment:
                     NODE_ENV: production
                     PORT: "3000"
-                    BASE_DOMAIN: ${DOMAIN_NAME}
-                    DATABASE_URL: postgresql://mcp_admin:${DB_PASSWORD}@postgres:5432/mcp_hosting?sslmode=disable
+                    BASE_DOMAIN: ${!DOMAIN_NAME}
+                    DATABASE_URL: postgresql://mcp_admin:${!DB_PASSWORD}@postgres:5432/mcp_hosting?sslmode=disable
                     DATABASE_SSL: "false"
                     REDIS_HOST: valkey
                     REDIS_PORT: "6379"
                     REDIS_TLS: "false"
-                    COOKIE_SECRET: ${COOKIE_SECRET}
-                    EMAIL_FROM: ${EMAIL_FROM}
-                    LICENSE_KEY: ${LICENSE_KEY}
+                    COOKIE_SECRET: ${!COOKIE_SECRET}
+                    EMAIL_FROM: ${!EMAIL_FROM}
+                    LICENSE_KEY: ${!LICENSE_KEY}
                   depends_on:
                     postgres:
                       condition: service_healthy

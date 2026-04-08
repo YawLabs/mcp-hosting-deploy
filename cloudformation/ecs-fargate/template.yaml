@@ -34,7 +34,7 @@ Parameters:
 
   AppImage:
     Type: String
-    Default: ghcr.io/yaw/mcp-hosting:latest
+    Default: ghcr.io/yawlabs/mcp-hosting:latest
     Description: Docker image URI for the mcp-hosting application.
 
   DesiredCount:

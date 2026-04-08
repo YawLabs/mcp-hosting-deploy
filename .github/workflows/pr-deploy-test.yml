@@ -26,12 +26,14 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Detect changed templates
         id: changes
         run: |
           templates=""
-          changed_files=$(git diff --name-only ${{ github.event.pull_request.base.sha }}..HEAD)
+          changed_files=$(git diff --name-only ${{ github.event.pull_request.base.sha }}..HEAD 2>/dev/null || git diff --name-only HEAD~1)
 
           if echo "$changed_files" | grep -q "^cloudformation/ec2/"; then
             templates="${templates:+$templates,}cfn-ec2"
@@ -48,6 +50,10 @@ jobs:
 
           echo "templates=$templates" >> "$GITHUB_OUTPUT"
           echo "has_changes=$( [[ -n "$templates" ]] && echo true || echo false )" >> "$GITHUB_OUTPUT"
+
+      - name: Login to GHCR
+        if: steps.changes.outputs.has_changes == 'true'
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: Configure AWS credentials
         if: steps.changes.outputs.has_changes == 'true' && steps.changes.outputs.templates != 'docker-compose'

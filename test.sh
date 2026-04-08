@@ -299,7 +299,7 @@ test_docker_compose() {
   local compose_dir="$SCRIPT_DIR/docker-compose"
   CLEANUP_COMPOSE_DIRS+=("$compose_dir")
 
-  # Create test .env
+  # Create test .env (removed in cleanup even on failure)
   local pg_pass cookie_secret
   pg_pass="$(generate_password 24)"
   cookie_secret="$(generate_password 64)"
@@ -324,12 +324,35 @@ EOF
   # Start services (skip Caddy -- needs real domain for TLS)
   log "Starting Docker Compose (postgres, redis, app)..."
   if ! docker compose -f "$compose_dir/docker-compose.yml" up -d postgres redis mcp-hosting-app 2>&1; then
+    rm -f "$compose_dir/.env"
     record_result "docker-compose" "fail" $((SECONDS - start_time)) "docker compose up failed"
     return 0
   fi
 
+  # Wait for postgres and redis to be healthy first
+  log "Waiting for postgres and redis to be healthy..."
+  local deps_healthy=false
+  for i in $(seq 1 12); do
+    local pg_status redis_status
+    pg_status=$(docker compose -f "$compose_dir/docker-compose.yml" ps postgres --format json 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('Health',''))" 2>/dev/null || echo "")
+    redis_status=$(docker compose -f "$compose_dir/docker-compose.yml" ps redis --format json 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('Health',''))" 2>/dev/null || echo "")
+    if [[ "$pg_status" == "healthy" && "$redis_status" == "healthy" ]]; then
+      deps_healthy=true
+      break
+    fi
+    sleep 5
+  done
+
+  if [[ "$deps_healthy" != "true" ]]; then
+    docker compose -f "$compose_dir/docker-compose.yml" down -v 2>/dev/null || true
+    rm -f "$compose_dir/.env"
+    CLEANUP_COMPOSE_DIRS=()
+    record_result "docker-compose" "fail" $((SECONDS - start_time)) "Postgres/Redis did not become healthy within 60s"
+    return 0
+  fi
+
   # Wait for app health
-  log "Waiting for health check (up to 120s)..."
+  log "Waiting for app health check (up to 120s)..."
   local healthy=false
   for i in $(seq 1 24); do
     if docker compose -f "$compose_dir/docker-compose.yml" exec -T mcp-hosting-app \
