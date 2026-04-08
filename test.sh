@@ -555,9 +555,9 @@ test_cfn_ec2() {
       --output text --region "$AWS_REGION" 2>/dev/null || echo "")
     if [[ -n "$instance_id" ]] && wait_for_ssm_agent "$instance_id" 60; then
       log "Cloud-init log (last 30 lines):"
-      ssm_run_command "$instance_id" "tail -30 /var/log/mcp-hosting-init.log 2>/dev/null || tail -30 /var/log/cloud-init-output.log 2>/dev/null || echo 'No init log found'" 15 2>&1 || true
+      ssm_run_command "$instance_id" "tail -30 /var/log/mcp-hosting-init.log 2>/dev/null || tail -30 /var/log/cloud-init-output.log 2>/dev/null || echo 'No init log found'" 30 2>&1 || true
       log "Docker status:"
-      ssm_run_command "$instance_id" "docker ps -a 2>/dev/null && docker compose -f /opt/mcp-hosting/docker-compose.yml logs --tail=10 2>/dev/null || echo 'Docker not ready'" 15 2>&1 || true
+      ssm_run_command "$instance_id" "docker ps -a 2>/dev/null && docker compose -f /opt/mcp-hosting/docker-compose.yml logs --tail=10 2>/dev/null || echo 'Docker not ready'" 30 2>&1 || true
     fi
     record_result "cfn-ec2" "fail" $((SECONDS - start_time)) "Health check failed after 10 min"
   fi
