@@ -14,6 +14,19 @@
 
 set -euo pipefail
 
+# Optional: set BACKUP_SLACK_WEBHOOK to receive failure notifications.
+# Example: export BACKUP_SLACK_WEBHOOK=https://hooks.slack.com/services/T.../B.../xxx
+notify_failure() {
+  local msg="[mcp-hosting backup] FAILED on $(hostname) at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  echo "${msg}" >&2
+  if [ -n "${BACKUP_SLACK_WEBHOOK:-}" ]; then
+    curl -sf -X POST -H 'Content-type: application/json' \
+      --data "{\"text\":\"${msg}\"}" \
+      "${BACKUP_SLACK_WEBHOOK}" >/dev/null 2>&1 || true
+  fi
+}
+trap notify_failure ERR
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 COMPOSE_DIR="$(dirname "$SCRIPT_DIR")/docker-compose"
 BACKUP_DIR="${BACKUP_DIR:-${COMPOSE_DIR}/backups}"

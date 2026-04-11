@@ -7,6 +7,25 @@
 # Requirements:
 #   - DNS: *.yourdomain.com and yourdomain.com must point to this server
 #   - For wildcard certs, you need a DNS challenge provider (see below)
+#
+# DNS Provider:
+#   This Caddyfile uses the Cloudflare DNS plugin by default. To use a
+#   different provider, build a custom Caddy image with the desired plugin:
+#
+#   Route53:   docker run -it caddy:builder caddy-builder cloudflare/certmagic-dns route53
+#              Then replace "dns cloudflare {env.CF_API_TOKEN}" with:
+#              dns route53 {
+#                  access_key_id {env.AWS_ACCESS_KEY_ID}
+#                  secret_access_key {env.AWS_SECRET_ACCESS_KEY}
+#                  region {env.AWS_REGION}
+#              }
+#
+#   Google Cloud DNS:
+#              dns googleclouddns {
+#                  gcp_project {env.GCP_PROJECT}
+#              }
+#
+#   See https://github.com/caddy-dns for the full list of providers.
 
 # Reusable reverse proxy snippet for MCP-aware proxying
 (mcp_proxy) {

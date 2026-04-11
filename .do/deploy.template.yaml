@@ -19,7 +19,7 @@ spec:
         - key: COOKIE_SECRET
           scope: RUN_TIME
           type: SECRET
-          value: CHANGE_ME
+          value: ${COOKIE_SECRET}
         - key: DATABASE_URL
           scope: RUN_TIME
           value: ${db.DATABASE_URL}
@@ -36,7 +36,7 @@ spec:
   databases:
     - name: db
       engine: PG
-      version: "17"
+      version: "18"
     - name: redis
       engine: REDIS
       version: "7"

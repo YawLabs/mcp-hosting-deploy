@@ -20,5 +20,5 @@ services:
 databases:
   - name: mcp-hosting-db
     plan: starter
-    databaseName: mcp_hosting
-    user: mcp
+    databaseName: mcphosting
+    user: mcphosting

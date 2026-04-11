@@ -80,8 +80,8 @@ postgres:
   image: postgres:18-alpine
   storage: 10Gi
   storageClass: ""
-  database: mcp_hosting
-  username: mcp
+  database: mcphosting
+  username: mcphosting
   # -- IMPORTANT: Set a strong password before deploying!
   password: ""
 
@@ -91,8 +91,8 @@ postgres:
 externalDatabase:
   host: ""       # e.g. my-db.abc123.us-west-2.rds.amazonaws.com
   port: 5432
-  database: mcp_hosting
-  username: mcp
+  database: mcphosting
+  username: mcphosting
   password: ""
   sslMode: require
 

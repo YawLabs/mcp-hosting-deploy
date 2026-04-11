@@ -266,13 +266,13 @@ Resources:
                   image: postgres:18-alpine
                   restart: always
                   environment:
-                    POSTGRES_DB: mcp_hosting
-                    POSTGRES_USER: mcp_admin
+                    POSTGRES_DB: mcphosting
+                    POSTGRES_USER: mcphosting
                     POSTGRES_PASSWORD: ${!DB_PASSWORD}
                   volumes:
                     - pgdata:/var/lib/postgresql
                   healthcheck:
-                    test: ["CMD-SHELL", "pg_isready -U mcp_admin -d mcp_hosting"]
+                    test: ["CMD-SHELL", "pg_isready -U mcphosting -d mcphosting"]
                     interval: 5s
                     retries: 5
                     start_period: 15s
@@ -296,7 +296,7 @@ Resources:
                     NODE_ENV: production
                     PORT: "3000"
                     BASE_DOMAIN: ${!DOMAIN_NAME}
-                    DATABASE_URL: postgresql://mcp_admin:${!DB_PASSWORD}@postgres:5432/mcp_hosting?sslmode=disable
+                    DATABASE_URL: postgresql://mcphosting:${!DB_PASSWORD}@postgres:5432/mcphosting?sslmode=disable
                     DATABASE_SSL: "false"
                     REDIS_HOST: valkey
                     REDIS_PORT: "6379"

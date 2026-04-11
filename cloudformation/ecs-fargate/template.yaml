@@ -429,9 +429,9 @@ Resources:
       AllocatedStorage: 20
       StorageType: gp3
       StorageEncrypted: true
-      MasterUsername: mcp_admin
+      MasterUsername: mcphosting
       MasterUserPassword: !Ref DBPassword
-      DBName: mcp_hosting
+      DBName: mcphosting
       VPCSecurityGroups:
         - !Ref RDSSecurityGroup
       DBSubnetGroupName: !Ref RDSSubnetGroup
@@ -557,7 +557,7 @@ Resources:
               Value: !Ref DomainName
             - Name: DATABASE_URL
               Value: !Sub
-                - "postgresql://mcp_admin:${DBPassword}@${RDSEndpoint}:5432/mcp_hosting?sslmode=require"
+                - "postgresql://mcphosting:${DBPassword}@${RDSEndpoint}:5432/mcphosting?sslmode=require"
                 - RDSEndpoint: !GetAtt RDSInstance.Endpoint.Address
             - Name: DATABASE_SSL
               Value: "require"
