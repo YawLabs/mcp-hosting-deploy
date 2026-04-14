@@ -1,210 +1,132 @@
-# Getting Started with mcp.hosting Self-Hosted
+# Getting started
 
-This guide walks through setting up a production mcp.hosting instance using Docker Compose.
+Step-by-step walkthrough for bringing up a production self-hosted instance of mcp.hosting on a single Linux server via Docker Compose. For Kubernetes, jump to the [Helm chart](../helm/mcp-hosting/).
 
-## 1. Server requirements
+## 1. Server
 
-- Linux server (Ubuntu 22.04+ recommended) with a public IP
-- Docker Engine 24+ and Docker Compose v2+
-- At least 2 GB RAM, 2 vCPUs, 20 GB disk
-- Ports 80 and 443 open to the internet
+- Ubuntu 22.04+ (or any modern Linux) with a public IPv4 address.
+- Docker Engine 24+ and Docker Compose v2+ installed.
+- 2 GB RAM / 2 vCPU / 20 GB disk is the minimum. For a team of 25 active users, double that.
+- Ports 80 and 443 open to the internet (Caddy binds them for TLS).
 
-## 2. Domain and DNS
+## 2. Domain + DNS
 
-You need a domain (or subdomain) with both a root record and a wildcard record pointing to your server.
-
-Example using `mcp.example.com`:
+Point a single A record at your server's public IP:
 
 ```
-A    mcp.example.com      → <your-server-ip>
-A    *.mcp.example.com    → <your-server-ip>
+A    mcp.example.com   →   203.0.113.10
 ```
 
-The wildcard is required because each hosted MCP server gets its own subdomain (e.g. `my-server.mcp.example.com`).
+One A record is all you need. Caddy handles TLS automatically.
 
-**DNS propagation** can take up to 48 hours, but usually completes within minutes. You can verify with:
+Verify the A record with `dig mcp.example.com +short` before moving on. DNS propagation is usually fast but can take up to 48 hours.
+
+## 3. Email (AWS SES)
+
+Magic-link login needs a verified SES sender.
+
+1. In the AWS console → SES, verify either a sending domain or a sender address (`noreply@mcp.example.com` is a reasonable default).
+2. If your SES account is still in the sandbox, either verify every recipient you intend to log in, or request production access.
+3. Create an IAM user with `ses:SendEmail` + `ses:SendRawEmail` and save the access key / secret.
+
+Without SES credentials, logins will fail — nobody can get into the dashboard.
+
+## 4. Configure
 
 ```bash
-dig mcp.example.com
-dig test.mcp.example.com
-```
-
-Both should resolve to your server's IP.
-
-## 3. Wildcard TLS certificates
-
-Caddy handles TLS automatically via Let's Encrypt. For wildcard certificates (`*.mcp.example.com`), the ACME DNS challenge is required -- HTTP challenges only work for individual domains, not wildcards.
-
-The included Caddyfile uses the Cloudflare DNS plugin. To use it:
-
-1. Create a Cloudflare API token with `Zone:DNS:Edit` permissions for your domain.
-2. Set `CF_API_TOKEN` in your `.env` file.
-3. Use the Caddy image with the Cloudflare plugin. You can build one with:
-
-```Dockerfile
-FROM caddy:2-builder AS builder
-RUN xcaddy build --with github.com/caddy-dns/cloudflare
-
-FROM caddy:2
-COPY --from=builder /usr/bin/caddy /usr/bin/caddy
-```
-
-Or update `docker-compose.yml` to use a pre-built image that includes the Cloudflare module.
-
-**Other DNS providers:** Caddy has plugins for most providers (Route53, DigitalOcean, etc.). Replace the `dns cloudflare` line in the Caddyfile with your provider and build Caddy with the corresponding plugin.
-
-**No wildcard (simpler setup):** If you don't need per-server subdomains, you can remove the wildcard block from the Caddyfile entirely and use only the root domain. Caddy will provision a standard certificate via HTTP challenge with no DNS plugin needed.
-
-## 4. Configure environment
-
-```bash
+git clone https://github.com/yawlabs/mcp-hosting-deploy.git
 cd mcp-hosting-deploy/docker-compose
 cp .env.example .env
 ```
 
-Edit `.env` and set at minimum:
+Edit `.env` and fill in the required variables:
 
 | Variable | Required | Notes |
 |---|---|---|
-| `DOMAIN` | Yes | Your domain, e.g. `mcp.example.com` |
-| `BASE_URL` | Yes | Full URL, e.g. `https://mcp.example.com` |
-| `POSTGRES_PASSWORD` | Yes | Use a strong, random password |
-| `COOKIE_SECRET` | Yes | Generate with `openssl rand -hex 32` |
-| `MCP_HOSTING_LICENSE_KEY` | No | Leave empty for free tier |
-| `EMAIL_FROM` | For auth | The sender address for magic link emails |
-| `AWS_*` | For auth | AWS SES credentials for sending email |
-| `CF_API_TOKEN` | For wildcard TLS | Cloudflare API token for DNS challenge |
+| `DOMAIN` | Yes | `mcp.example.com` — no protocol prefix |
+| `BASE_URL` | Yes | `https://mcp.example.com` — full URL with scheme |
+| `POSTGRES_PASSWORD` + `DATABASE_URL` | Yes | Match both — the URL embeds the password |
+| `COOKIE_SECRET` | Yes | `openssl rand -hex 32` |
+| `EMAIL_FROM` | Yes | Verified SES sender |
+| `AWS_REGION` / `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Yes | For SES |
+| `MCP_HOSTING_LICENSE_KEY` | No | Paid features; free tier works without |
 
-## 5. Start the stack
+## 5. Boot
 
 ```bash
 docker compose up -d
 ```
 
-For production, use the production overlay for resource limits and log rotation:
+Then wait ~60 seconds for Caddy to provision the Let's Encrypt certificate. Check status:
+
+```bash
+docker compose ps
+docker compose logs -f caddy
+```
+
+All four containers should be healthy: `mcp-hosting-app`, `postgres`, `redis`, `caddy`.
+
+For a production deploy (resource limits + log rotation) add the prod overlay:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
 
-Check that everything is running:
+## 6. First sign-in
 
-```bash
-docker compose ps
+Open `https://mcp.example.com` in a browser. You should land on the mcp.hosting sign-in page. Enter your email — SES sends a magic-link code. Paste it in, and you're signed in as the first account on your instance.
+
+## 7. Point mcph at your instance
+
+Every team member who wants to use the orchestrator installs `@yawlabs/mcph` in their MCP client config, with `MCPH_URL` set to your instance:
+
+```json
+{
+  "mcpServers": {
+    "mcp.hosting": {
+      "command": "npx",
+      "args": ["-y", "@yawlabs/mcph"],
+      "env": {
+        "MCPH_TOKEN": "mcp_pat_...",
+        "MCPH_URL": "https://mcp.example.com"
+      }
+    }
+  }
+}
 ```
 
-You should see four containers: `mcp-hosting-app`, `postgres`, `redis`, and `caddy` -- all healthy.
+Tokens are created in the dashboard under **Settings → API Tokens**. See [docs/mcph-client.md](./mcph-client.md) for per-client config paths (Claude Desktop, Cursor, VS Code).
 
-View logs if something isn't right:
+## 8. License key (optional)
 
-```bash
-docker compose logs -f mcp-hosting-app
-docker compose logs -f caddy
-```
+Running as free-tier is fine for evaluation. To unlock Pro or Team features on your self-hosted instance:
 
-## 6. Email configuration (AWS SES)
+1. Buy a plan at [mcp.hosting/pricing](https://mcp.hosting/pricing). LemonSqueezy emails the key.
+2. Set `MCP_HOSTING_LICENSE_KEY=lk_live_...` in `.env`.
+3. `docker compose restart mcp-hosting-app`.
 
-Magic link authentication sends a login link to the user's email. This requires **AWS SES** -- it is the only supported email provider.
+The app validates the key on boot, caches the result for 24 hours, and re-validates in the background. Grace period is 7 days if the license API becomes unreachable. Full lifecycle: [docs/license.md](./license.md).
 
-### AWS SES setup
+## 9. Health check + monitoring
 
-1. In the AWS console, go to SES and verify your sending domain or email address.
-2. If your SES account is in sandbox mode, you can only send to verified addresses. Request production access for unrestricted sending.
-3. Create an IAM user with `ses:SendEmail` and `ses:SendRawEmail` permissions.
-4. Add the credentials to your `.env`:
+`GET /health` returns 200 when the service is up. Point any uptime monitor at `https://mcp.example.com/health`.
 
-```
-AWS_REGION=us-east-1
-AWS_ACCESS_KEY_ID=AKIA...
-AWS_SECRET_ACCESS_KEY=...
-EMAIL_FROM=noreply@mcp.example.com
-```
+## 10. Backups + upgrades
 
-5. Restart the app: `docker compose restart mcp-hosting-app`
+- Set up `scripts/backup.sh` on a nightly cron — see [docs/backup-restore.md](./backup-restore.md).
+- When a new image ships, `docker compose pull && docker compose up -d`. Migrations run automatically on boot. Rollback procedure: [docs/upgrade.md](./upgrade.md).
 
-**If no email credentials are configured, login will not work.** Email is required for magic link authentication.
+## 11. Hardening
 
-## 7. Health check
+- **Firewall:** only 80 and 443 should be open. Block direct access to 5432 (Postgres) and 6379 (Redis).
+- **Backups:** tested restore end-to-end at least once before you rely on them.
+- **Secrets:** `.env` is gitignored. Don't commit it. Store it outside the repo or in your secret manager.
+- **License:** the license grace-period window is 7 days. If your firewall blocks outbound HTTPS to `mcp.hosting`, paid features drop back to free-tier after that window.
 
-The app exposes `GET /health` at the root domain. This endpoint returns HTTP 200 when the service is running and can accept requests. Use it for uptime monitoring:
+## 12. What to read next
 
-```bash
-curl -s https://mcp.example.com/health
-```
-
-## 8. Verify your deployment
-
-1. Open `https://mcp.example.com` in your browser. You should see the mcp.hosting dashboard.
-2. Try logging in with a magic link (requires email to be configured).
-3. Create a test MCP server and verify it's reachable at its subdomain.
-
-## 9. Production hardening
-
-**Backups:** Use the included backup script for scheduled PostgreSQL backups:
-
-```bash
-# One-time backup
-./scripts/backup.sh
-
-# Backup with S3 upload
-./scripts/backup.sh s3://my-bucket/mcp-backups
-
-# Schedule daily at 2am via cron
-0 2 * * * /path/to/mcp-hosting-deploy/scripts/backup.sh s3://my-bucket/mcp-backups
-```
-
-To restore from a backup:
-
-```bash
-gunzip -c backup-file.sql.gz | docker compose exec -T postgres psql -U mcphosting mcphosting
-```
-
-**Firewall:** Only ports 80 and 443 need to be open. Block direct access to ports 5432 (Postgres) and 6379 (Redis) from the internet.
-
-**Monitoring:** Point your uptime monitor at `https://mcp.example.com/health`.
-
-**Updates:**
-
-```bash
-docker compose pull
-docker compose up -d
-```
-
-Database migrations run automatically on app startup. There is no manual migration step.
-
-## 10. License key
-
-To unlock proxy features (auth, rate limiting, routing):
-
-1. Purchase a license at [mcp.hosting/pricing](https://mcp.hosting/pricing).
-2. Add the key to your `.env`:
-
-```
-MCP_HOSTING_LICENSE_KEY=lk_live_...
-```
-
-3. Restart: `docker compose restart mcp-hosting-app`
-
-Proxy features activate immediately. No data loss or downtime.
-
-## 11. MCP protocol notes
-
-### Streamable HTTP transport
-
-This platform uses **Streamable HTTP** as the production transport, per the [MCP specification 2025-11-25](https://modelcontextprotocol.io/specification/2025-11-25). The reverse proxy is configured to:
-
-- Forward MCP-specific headers (`MCP-Session-Id`, `MCP-Protocol-Version`)
-- Support long-lived SSE connections (1-hour timeout)
-- Disable response buffering for real-time event streaming
-
-### Authentication (licensed tier)
-
-The licensed proxy tier implements authentication and rate limiting for MCP server access. This aligns with the MCP spec's requirements for OAuth 2.1 with PKCE on HTTP-based transports.
-
-### MCP gateway architecture
-
-The proxy tier acts as an **MCP gateway** -- a centralized point that sits between AI clients and your MCP servers to enforce auth, rate limiting, and routing policies. This is the [emerging enterprise pattern](https://modelcontextprotocol.io/specification/2025-11-25) for managing multiple MCP servers at scale, avoiding fragile direct connections between every client and every server.
-
-### Server discovery
-
-The MCP spec roadmap includes `.well-known` metadata for server discovery (targeted for the June 2026 spec release). This will allow clients to discover MCP server capabilities without establishing a live connection. Future versions of mcp.hosting will support this once the spec is finalized.
+- [docs/mcph-client.md](./mcph-client.md) — team member onboarding.
+- [docs/license.md](./license.md) — license behaviour + troubleshooting.
+- [docs/troubleshooting.md](./troubleshooting.md) — common issues.
+- [docs/upgrade.md](./upgrade.md) — rolling a new image + rollback.
+- [docs/backup-restore.md](./backup-restore.md) — Postgres dump + restore.

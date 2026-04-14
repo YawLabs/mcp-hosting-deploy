@@ -53,11 +53,9 @@ echo -n "$(openssl rand -hex 32)" | \
 
 1. Map your domain in Cloud Run: `gcloud run domain-mappings create --service mcp-hosting --domain mcp.example.com`
 2. Add the DNS records shown by the command
-3. For wildcard subdomains (`*.mcp.example.com`), use a load balancer with Cloud Run as the backend
 
 ## Notes
 
 - Cloud Run natively handles TLS, so Caddy is not needed
 - SSE / Streamable HTTP connections work with `--timeout 3600`
 - Set `--cpu-throttling=false` to keep the CPU always allocated (required for background tasks)
-- For wildcard subdomain routing, use [Cloud Run with a global external Application Load Balancer](https://cloud.google.com/run/docs/mapping-custom-domains#https-load-balancer)

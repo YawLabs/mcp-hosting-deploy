@@ -1,39 +1,18 @@
 # =============================================================================
 # mcp.hosting Caddyfile
 # =============================================================================
-# Handles TLS termination (Let's Encrypt), wildcard subdomain routing,
-# and SSE-friendly reverse proxying to the mcp-hosting app.
-#
-# Requirements:
-#   - DNS: *.yourdomain.com and yourdomain.com must point to this server
-#   - For wildcard certs, you need a DNS challenge provider (see below)
-#
-# DNS Provider:
-#   This Caddyfile uses the Cloudflare DNS plugin by default. To use a
-#   different provider, build a custom Caddy image with the desired plugin:
-#
-#   Route53:   docker run -it caddy:builder caddy-builder cloudflare/certmagic-dns route53
-#              Then replace "dns cloudflare {env.CF_API_TOKEN}" with:
-#              dns route53 {
-#                  access_key_id {env.AWS_ACCESS_KEY_ID}
-#                  secret_access_key {env.AWS_SECRET_ACCESS_KEY}
-#                  region {env.AWS_REGION}
-#              }
-#
-#   Google Cloud DNS:
-#              dns googleclouddns {
-#                  gcp_project {env.GCP_PROJECT}
-#              }
-#
-#   See https://github.com/caddy-dns for the full list of providers.
+# Single-domain TLS via Let's Encrypt HTTP challenge. No DNS plugin, no DNS
+# provider credentials needed. Open ports 80 + 443, point your domain's A
+# record at this host, done.
+# =============================================================================
 
-# Reusable reverse proxy snippet for MCP-aware proxying
+# Reusable reverse proxy snippet. SSE-aware; forwards MCP protocol headers.
 (mcp_proxy) {
 	reverse_proxy mcp-hosting-app:3000 {
-		# SSE streaming -- disable response buffering
+		# SSE streaming — disable response buffering.
 		flush_interval -1
 
-		# Long timeouts for SSE / Streamable HTTP connections
+		# Long timeouts for SSE / Streamable HTTP connections.
 		transport http {
 			response_header_timeout 0
 			dial_timeout 30s
@@ -41,7 +20,7 @@
 			write_timeout 3600s
 		}
 
-		# Forward relevant headers
+		# Forward relevant headers.
 		header_up Host {host}
 		header_up X-Real-IP {remote_host}
 		header_up X-Forwarded-For {remote_host}
@@ -52,26 +31,14 @@
 
 	header {
 		X-Content-Type-Options "nosniff"
-		X-Frame-Options "DENY"
+		X-Frame-Options "SAMEORIGIN"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		Permissions-Policy "camera=(), geolocation=(), microphone=(), payment=(), usb=(), interest-cohort=()"
 	}
 }
 
-# Root domain -- dashboard + API
+# Root domain — dashboard + API. Caddy auto-provisions TLS via Let's Encrypt.
 {$DOMAIN} {
-	tls {
-		dns cloudflare {env.CF_API_TOKEN}
-	}
-
-	import mcp_proxy
-}
-
-# Wildcard subdomains (e.g., my-server.mcp.example.com)
-*.{$DOMAIN} {
-	tls {
-		dns cloudflare {env.CF_API_TOKEN}
-	}
-
 	import mcp_proxy
 }

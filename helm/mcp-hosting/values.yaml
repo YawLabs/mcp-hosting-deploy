@@ -5,7 +5,7 @@
 # Recommended production architecture:
 #   - Database:  External managed service (AWS RDS, Cloud SQL, AlloyDB, etc.)
 #   - Cache:     In-cluster Valkey (easy to recover, no persistence concerns)
-#   - Proxy:     In-cluster Caddy (automatic TLS via DNS challenge)
+#   - TLS:       In-cluster Caddy, Let's Encrypt HTTP challenge, single domain
 #
 # By default this chart expects an external database. Set the connection
 # details under `externalDatabase`. For local development or testing you
@@ -14,10 +14,8 @@
 # =============================================================================
 
 # -- Domain configuration
-# Your root domain (the dashboard lives here)
+# Your root domain — the dashboard + mcph orchestrator live here.
 domain: mcp.example.com
-# Wildcard domain for MCP server subdomains (e.g., my-server.mcp.example.com)
-wildcardDomain: "*.mcp.example.com"
 
 # -- License key (optional -- omit or leave empty for free tier)
 licenseKey: ""

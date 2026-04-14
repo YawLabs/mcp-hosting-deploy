@@ -1,167 +1,189 @@
 # mcp.hosting Self-Hosted Deploy
 
-[![Validate Templates](https://github.com/YawLabs/mcp-hosting-deploy/actions/workflows/validate.yml/badge.svg)](https://github.com/YawLabs/mcp-hosting-deploy/actions/workflows/validate.yml) [![mcp.hosting tested](./test-results/badge.svg)](https://mcp.hosting/verified)
+[![Validate Templates](https://github.com/YawLabs/mcp-hosting-deploy/actions/workflows/validate.yml/badge.svg)](https://github.com/YawLabs/mcp-hosting-deploy/actions/workflows/validate.yml)
 
-Self-host the [mcp.hosting](https://mcp.hosting) platform on your own infrastructure. One deployment -- a license key determines what features are enabled.
+Your team's own private instance of [mcp.hosting](https://mcp.hosting) — the cloud orchestrator for MCP servers behind the `mcph` CLI. One deployment, license-key-gated features, same dashboard as the hosted service.
+
+> **Who this is for.** Teams and enterprises that need their own instance for data-sovereignty, compliance, or contract reasons. If you can use the hosted service at [mcp.hosting](https://mcp.hosting), it's cheaper and always current — see the [Managed alternative](#managed-alternative) note below.
 
 ## One-click deploy
 
-[![Deploy to DigitalOcean](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/YawLabs/mcp-hosting-deploy/tree/master) [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/yawlabs/mcp-hosting-deploy) [![Launch Stack](https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/review?stackName=mcp-hosting&templateURL=https://raw.githubusercontent.com/YawLabs/mcp-hosting-deploy/master/cloudformation/ec2/template.yaml)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/yawlabs/mcp-hosting-deploy) [![Deploy on Fly.io](https://fly.io/static/images/launch/deploy-on-fly.svg)](https://fly.io/launch?source=https://github.com/YawLabs/mcp-hosting-deploy)
 
-## Install
+## What you get
 
-```bash
-# Docker
-docker pull ghcr.io/yawlabs/mcp-hosting:latest
+A self-hosted instance of mcp.hosting that your team can point their MCP clients at. Each team member installs [`@yawlabs/mcph`](https://www.npmjs.com/package/@yawlabs/mcph) in their Claude Desktop / Cursor / VS Code and sets `MCPH_URL=https://your-domain.example` — the rest of the flow is identical to the hosted product.
 
-# Helm
-helm install mcp-hosting oci://ghcr.io/yawlabs/charts/mcp-hosting
-```
-
-## What's included
-
-| Feature | Free | Licensed ($19/mo) |
+| Feature | Free tier (no license key) | Paid tier (license key set) |
 |---|---|---|
-| MCP server hosting | Yes | Yes |
-| Compliance & audit logging | Yes | Yes |
-| MCP proxy (auth, rate limiting, routing) | -- | Yes |
-| Priority support | -- | Yes |
+| mcph orchestrator | Yes | Yes |
+| Up to 3 MCP servers per user | Yes | Unlimited |
+| Dashboard + team sign-up | Yes | Yes |
+| Opt-in usage analytics | 7-day retention | 30-day retention |
+| Compliance test runner | Yes | Yes |
+| Team plan features (shared servers, admin controls, centralised billing) | — | Yes (Team key) |
+| Priority support | — | Yes |
 
-Get a license key at [mcp.hosting/pricing](https://mcp.hosting/pricing).
+License keys are purchased on [mcp.hosting/pricing](https://mcp.hosting/pricing) via LemonSqueezy. The plan attached to the key determines which paid features light up.
 
 ## Prerequisites
 
-- Docker and Docker Compose v2+
-- A domain name (e.g. `mcp.example.com`)
-- DNS: `mcp.example.com` and `*.mcp.example.com` pointing to your server
-- AWS SES credentials for email (required for magic link login)
+- Linux server (Ubuntu 22.04+ recommended) or a Kubernetes cluster.
+- A domain name pointed at your server (single A record).
+- Docker Engine 24+ and Docker Compose v2+ *(for the Compose path)*, or `kubectl` + Helm 3+ *(for the Helm path)*.
+- An [AWS SES](https://aws.amazon.com/ses/) sender identity for magic-link authentication (the only supported email provider today).
 
-## Quick start
+## Quick start — Docker Compose
 
 ```bash
-# 1. Clone this repo
+# 1. Clone and move into the Compose directory
 git clone https://github.com/yawlabs/mcp-hosting-deploy.git
 cd mcp-hosting-deploy/docker-compose
 
-# 2. Configure your environment
+# 2. Generate secrets + copy the env template
 cp .env.example .env
-# Edit .env -- at minimum set DOMAIN, BASE_URL, POSTGRES_PASSWORD, and COOKIE_SECRET
+# Edit .env — at minimum set DOMAIN, BASE_URL, POSTGRES_PASSWORD, COOKIE_SECRET,
+# EMAIL_FROM, and the three AWS_* variables for SES.
+# Optional: set MCP_HOSTING_LICENSE_KEY to unlock paid features.
 
-# 3. Start everything
+# 3. Point your domain's A record at this server's public IP.
+
+# 4. Bring everything up.
 docker compose up -d
+
+# 5. Open https://your-domain.example — Caddy will provision a Let's Encrypt
+#    certificate automatically (usually under 60 seconds).
 ```
 
-Your instance will be live at `https://your-domain.com` once Caddy provisions the TLS certificate (usually under a minute).
-
-For production deployments, use the production overlay for resource limits and log rotation:
+For a production deployment (resource limits + log rotation):
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
 
-## DNS setup
+Your team members then install mcph pointing at your instance:
 
-Point both your root domain and a wildcard to your server's IP:
+```json
+{
+  "mcpServers": {
+    "mcp.hosting": {
+      "command": "npx",
+      "args": ["-y", "@yawlabs/mcph"],
+      "env": {
+        "MCPH_TOKEN": "mcp_pat_...",
+        "MCPH_URL": "https://your-domain.example"
+      }
+    }
+  }
+}
+```
+
+On Windows, wrap the command in `cmd /c` — see the [main docs](https://mcp.hosting/docs) for the per-client config shapes.
+
+## DNS
+
+Point your domain's A record at the server's public IP:
 
 ```
-A    mcp.example.com      → 203.0.113.10
-A    *.mcp.example.com    → 203.0.113.10
+A    your-domain.example    → <your-server-ip>
 ```
 
-Wildcard subdomains are used for per-server routing (e.g. `my-server.mcp.example.com`).
+That's it — one record. Caddy handles TLS automatically via Let's Encrypt.
 
-For wildcard TLS certificates, Caddy uses the DNS challenge. The default Caddyfile is configured for Cloudflare -- set `CF_API_TOKEN` in your `.env`. For other DNS providers, swap the Caddy image for one with your provider's plugin and update the Caddyfile accordingly.
+## License key activation
 
-## Email setup
+1. Subscribe to the **Team plan** at [mcp.hosting/pricing](https://mcp.hosting/pricing) ($15/seat/mo). Every Team subscription auto-generates a self-host license key, viewable in your hosted dashboard at **Settings → Self-host license key**.
+2. Copy the key. Format: `mcph_sh_<hex>`.
+3. Set it in your self-host environment:
+   ```
+   MCP_HOSTING_LICENSE_KEY=mcph_sh_...
+   ```
+4. Restart the app container: `docker compose restart mcp-hosting-app`.
 
-Magic link authentication requires AWS SES. Set `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `EMAIL_FROM` in your `.env`.
+On first boot, the instance validates against `mcp.hosting/api/license/validate` and stamps itself as the owner of that key — **one key, one instance.** Seat + plan changes propagate within 15 minutes (or click **Revalidate now** in your self-host's Settings for instant sync). If the license API is unreachable, cached paid features continue to work under a 7-day grace period; after that the instance falls back to free-tier features until the next successful validation. Moving to new hardware? Click **Unbind installation** in Settings, then validate on the new instance. See [docs/license.md](./docs/license.md) for the full behaviour.
 
-If no AWS credentials are provided, email sending is disabled and **login will not work**.
-
-## Health check
-
-The app exposes `GET /health` which returns HTTP 200 when the service is running. Point your uptime monitor at `https://mcp.example.com/health`.
-
-## Upgrading
+## Upgrades
 
 ```bash
 docker compose pull
 docker compose up -d
 ```
 
-The app container runs database migrations automatically on startup.
+The app runs database migrations automatically on boot. No manual step.
+
+If an upgrade goes wrong, roll back to the previous image tag:
+
+```bash
+export MCP_HOSTING_IMAGE_TAG=previous-sha
+docker compose up -d mcp-hosting-app
+```
+
+See [docs/upgrade.md](./docs/upgrade.md) for the full procedure and rollback tips.
 
 ## Backups
 
-Use the included backup script for scheduled PostgreSQL backups:
+A backup script ships in `scripts/backup.sh`:
 
 ```bash
 # Local backup
 ./scripts/backup.sh
 
-# Backup and upload to S3
+# Backup + upload to S3
 ./scripts/backup.sh s3://my-bucket/mcp-backups
 
-# Schedule daily backups via cron (2am)
-# 0 2 * * * /path/to/mcp-hosting-deploy/scripts/backup.sh s3://my-bucket/mcp-backups
+# Cron: daily at 2am
+0 2 * * * /path/to/mcp-hosting-deploy/scripts/backup.sh s3://my-bucket/mcp-backups
 ```
 
-See [scripts/backup.sh](./scripts/backup.sh) for restore instructions and configuration options.
+Restore: see [docs/backup-restore.md](./docs/backup-restore.md).
 
-## Deploy templates
+## Health check
 
-| Template | Status | Notes |
+`GET /health` returns HTTP 200 when the service is healthy. Point any uptime monitor at `https://your-domain.example/health`.
+
+## Deployment paths
+
+| Template | Recommended for | Notes |
 |---|---|---|
-| [Docker Compose](./docker-compose/) | Ready | Bundles Postgres for simplicity |
-| [Helm](./helm/) | Ready | Defaults to external database (RDS, Cloud SQL, etc.) |
-| [Cloud Run](./cloudrun/) | Ready | Serverless containers on GCP |
-| [Fly.io](./fly/) | Ready | Managed Postgres & Redis via `fly` CLI |
-| [Railway](./railway/) | Ready | One-click deploy button |
-| [Render](./render/) | Ready | Blueprint with managed Postgres |
-| [CloudFormation](./cloudformation/) | Ready | AWS-native with ECS Fargate |
-| [Terraform](./terraform/) | Ready | Multi-cloud (AWS, GCP, Azure) |
+| [Docker Compose](./docker-compose/) | Single VM | Bundles Postgres 18 + Valkey 8 + Caddy. Fastest happy path. |
+| [Helm](./helm/) | Existing Kubernetes cluster | Defaults to external managed Postgres (RDS, Cloud SQL) |
+| [Render](./render/) | Managed PaaS | Blueprint deploys the app + managed Postgres |
+| [Fly.io](./fly/) | Managed PaaS | `flyctl launch` with managed Postgres + Upstash Redis |
+| [Cloud Run](./cloudrun/) | GCP serverless | Single-container; bring your own Cloud SQL + Memorystore |
 
-> **Helm chart note:** The Helm chart defaults to an **external managed database** (e.g. AWS RDS, Cloud SQL, AlloyDB). Set `externalDatabase.host` and credentials in your values. In-cluster Postgres is available for development by setting `postgres.enabled: true`. In-cluster Valkey is used by default and is fine for production.
+Each path has its own README with exact prerequisites and a first-boot checklist.
 
-## Testing
+**Deploying elsewhere?** The image at `ghcr.io/yawlabs/mcp-hosting:latest` runs on any container platform that gives it Postgres 14+, Redis/Valkey, and a domain. See [docs/getting-started.md](./docs/getting-started.md) for the minimum env var set.
 
-Deploy templates are tested weekly against real infrastructure. Each test deploys the full template, verifies the application health check, and tears down all resources. See [test-results/](./test-results/) for the latest run.
+## Operator documentation
 
-| Template | Tested | Method |
-|---|---|---|
-| CloudFormation EC2 | Yes | Full AWS deploy + HTTP health check |
-| CloudFormation ECS Fargate | Yes | Full AWS deploy + ECS/ALB status |
-| Terraform AWS | Yes | Full AWS deploy + SSM health check |
-| Docker Compose | Yes | Local Docker health check |
-| Helm | Planned | Needs Kubernetes cluster |
-| Cloud Run | Planned | Needs GCP |
-| Terraform GCP | Planned | Needs GCP |
-| Terraform Azure | Planned | Needs Azure |
-| Fly.io | Planned | Needs account |
-| DigitalOcean | Planned | Needs account |
-| Render | Planned | Needs account |
-| Railway | Planned | Needs account |
-
-Templates are also scanned with [Checkov](https://www.checkov.io/) for security best practices, and cost estimates are generated via [Infracost](https://www.infracost.io/).
+- [docs/getting-started.md](./docs/getting-started.md) — full step-by-step walkthrough.
+- [docs/upgrade.md](./docs/upgrade.md) — image pull, migration, rollback.
+- [docs/backup-restore.md](./docs/backup-restore.md) — scripts/backup.sh and the restore flow.
+- [docs/license.md](./docs/license.md) — license key lifecycle and grace periods.
+- [docs/troubleshooting.md](./docs/troubleshooting.md) — common operator issues.
+- [docs/mcph-client.md](./docs/mcph-client.md) — how team members point their mcph CLI at this instance.
 
 ## MCP protocol compatibility
 
-This platform uses **Streamable HTTP** as the production transport (per the [MCP spec 2025-11-25](https://modelcontextprotocol.io/specification/2025-11-25)). The Caddy reverse proxy is configured to forward MCP-specific headers (`MCP-Session-Id`, `MCP-Protocol-Version`) and supports long-lived SSE connections.
-
-The licensed proxy tier implements authentication and rate limiting aligned with the MCP specification's OAuth 2.1 requirements for HTTP-based transports.
+Uses **Streamable HTTP** per the [MCP spec 2025-11-25](https://modelcontextprotocol.io/specification/2025-11-25). Caddy forwards `MCP-Session-Id` and `MCP-Protocol-Version` headers and supports long-lived SSE connections.
 
 ## Managed alternative
 
-Don't want to manage infrastructure? Use [mcp.hosting](https://mcp.hosting) -- the fully managed version with the same features, zero ops.
+If you don't need self-host specifically, [mcp.hosting](https://mcp.hosting) is the same code running as a managed service — same dashboard, same mcph CLI, no ops. $9/mo Pro, $15/seat Team. Self-host makes sense when data sovereignty or contract terms require it; otherwise the hosted service is faster to set up and always current.
 
-## Detailed guide
+## Testing + validation
 
-See [docs/getting-started.md](./docs/getting-started.md) for a step-by-step walkthrough including DNS, email, and production hardening.
+Every deployment template is CI-validated (Checkov security scan, cost estimates via Infracost where applicable, and end-to-end deploy tests against real infrastructure for the paths in green above). See [test-results/](./test-results/) for the latest run.
+
+## Security
+
+Vulnerability disclosure: see [SECURITY.md](./SECURITY.md). Short version: email [support@mcp.hosting](mailto:support@mcp.hosting) with a `[security]` subject prefix; we respond within 48 hours.
 
 ## Contributing
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
+See [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## License
 
-MIT
+Source-available; not OSS. You may run this inside your organisation for your own use. Redistribution and operating a competing commercial MCP hosting service are prohibited. See [LICENSE](./LICENSE) for full terms.

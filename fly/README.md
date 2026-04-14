@@ -1,47 +1,70 @@
 # Deploy mcp.hosting on Fly.io
 
+Single-domain deploy on Fly's managed platform. No wildcard DNS needed — consumer self-host uses one domain.
+
 ## Quick start
 
 ```bash
-# 1. Launch the app (uses fly.toml from this directory)
-fly launch --copy-config
+# 1. Install flyctl and sign in
+curl -L https://fly.io/install.sh | sh
+fly auth login
 
-# 2. Create backing services
-fly postgres create
-fly redis create
+# 2. Launch the app from this directory (reuses fly.toml)
+cd fly
+fly launch --copy-config --no-deploy
 
-# 3. Set secrets
-fly secrets set DATABASE_URL=postgres://... REDIS_URL=redis://... COOKIE_SECRET=...
+# 3. Provision backing services
+fly postgres create      # managed Postgres cluster; attach to your app when prompted
+fly redis create          # managed Redis/Valkey (Upstash-backed)
 
-# 4. Deploy
+# 4. Set secrets
+fly secrets set \
+  COOKIE_SECRET="$(openssl rand -hex 32)" \
+  AWS_ACCESS_KEY_ID=... \
+  AWS_SECRET_ACCESS_KEY=... \
+  AWS_REGION=us-east-1 \
+  EMAIL_FROM="noreply@your-domain.example" \
+  MCP_HOSTING_LICENSE_KEY="mcph_sh_..."   # optional -- omit for free-tier
+
+# DATABASE_URL and REDIS_URL are set automatically when you attach the
+# Postgres + Redis apps above.
+
+# 5. Deploy
 fly deploy
 ```
 
-## Configuration
+## Custom domain
 
-Edit `fly.toml` to set your region, environment variables, and scaling preferences.
+Point a single A/AAAA or CNAME record at your Fly app, then let Fly issue the cert:
 
-Secrets (set via `fly secrets set`):
+```bash
+fly certs add your-domain.example
+```
+
+Add the DNS records shown by that command. Fly provisions Let's Encrypt automatically.
+
+## Secrets
 
 | Secret | Description |
 |---|---|
-| `DATABASE_URL` | Postgres connection string |
-| `REDIS_URL` | Redis/Valkey connection string |
-| `COOKIE_SECRET` | Random string for session cookies |
-| `MCP_HOSTING_LICENSE_KEY` | License key from [mcp.hosting/pricing](https://mcp.hosting/pricing) |
+| `COOKIE_SECRET` | 32+ char random string for session cookies |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_REGION` | SES credentials for magic-link email |
+| `EMAIL_FROM` | Verified SES sender identity |
+| `MCP_HOSTING_LICENSE_KEY` | Team license key from mcp.hosting (optional; free-tier if unset) |
 
-## DNS
+`DATABASE_URL` and `REDIS_URL` are injected by Fly when you attach Postgres and Redis apps — don't set them manually.
 
-Point your domain and wildcard to the Fly app:
+## Scaling
 
-```
-CNAME  mcp.example.com    → mcp-hosting.fly.dev
-CNAME  *.mcp.example.com  → mcp-hosting.fly.dev
-```
-
-Then add the custom domain:
+Bump machine count or size in `fly.toml` or via `flyctl`:
 
 ```bash
-fly certs add mcp.example.com
-fly certs add "*.mcp.example.com"
+fly scale count 2             # two machines for HA
+fly scale vm shared-cpu-2x    # upgrade CPU/RAM
 ```
+
+## Notes
+
+- `auto_stop_machines = "stop"` lets Fly suspend idle machines; `min_machines_running = 1` keeps one always warm so magic-link emails don't cold-start.
+- Fly's HTTP edge handles TLS, so no Caddy sidecar is needed.
+- SSE / Streamable HTTP works over Fly's HTTP service without extra config.
