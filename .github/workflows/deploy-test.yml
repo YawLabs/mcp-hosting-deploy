@@ -1,0 +1,67 @@
+name: Deploy Tests
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Single target to run (docker-compose, helm, fly, render, cloudrun) or empty for all"
+        default: ""
+      image:
+        description: "App image to test against"
+        default: "ghcr.io/yawlabs/mcp-hosting:latest"
+
+concurrency:
+  group: deploy-test-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [docker-compose, helm, fly, render, cloudrun]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install yamllint
+        if: matrix.target == 'render' || matrix.target == 'cloudrun'
+        run: pip install yamllint
+
+      - name: Set up Helm
+        if: matrix.target == 'helm'
+        uses: azure/setup-helm@v4
+
+      - name: Set up kubectl
+        if: matrix.target == 'helm'
+        uses: azure/setup-kubectl@v4
+
+      - name: Install flyctl
+        if: matrix.target == 'fly'
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Run target
+        run: bash test.sh --target=${{ matrix.target }}
+        env:
+          IMAGE: ${{ github.event.inputs.image || 'ghcr.io/yawlabs/mcp-hosting:latest' }}
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: results-${{ matrix.target }}
+          path: test-results/
+          if-no-files-found: ignore
