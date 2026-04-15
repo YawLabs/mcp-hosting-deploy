@@ -7,6 +7,11 @@ Routine upgrades pull a fresh image, restart the app container, and auto-apply a
 ```bash
 cd mcp-hosting-deploy/docker-compose
 
+# Ensure your GHCR session is still valid. Tokens are revoked automatically
+# when a subscription lapses, so a "docker compose pull" that used to work
+# can start returning "denied" — re-login first if it's been a while.
+echo $MCPH_GHCR_TOKEN | docker login ghcr.io -u self-host --password-stdin
+
 # Pull the latest tag
 docker compose pull mcp-hosting-app
 

@@ -14,20 +14,20 @@ Your team's own private instance of [mcp.hosting](https://mcp.hosting) — the c
 
 A self-hosted instance of mcp.hosting that your team can point their MCP clients at. Each team member installs [`@yawlabs/mcph`](https://www.npmjs.com/package/@yawlabs/mcph) in their Claude Desktop / Cursor / VS Code and sets `MCPH_URL=https://your-domain.example` — the rest of the flow is identical to the hosted product.
 
-| Feature | Free tier (no license key) | Paid tier (license key set) |
-|---|---|---|
-| mcph orchestrator | Yes | Yes |
-| Up to 3 MCP servers per user | Yes | Unlimited |
-| Dashboard + team sign-up | Yes | Yes |
-| Opt-in usage analytics | 7-day retention | 30-day retention |
-| Compliance test runner | Yes | Yes |
-| Team plan features (shared servers, admin controls, centralised billing) | — | Yes (Team key) |
-| Priority support | — | Yes |
+Self-host is a **Team plan** capability and requires an active Team license key (`mcph_sh_<hex>`). Feature set:
 
-License keys are purchased on [mcp.hosting/pricing](https://mcp.hosting/pricing) via LemonSqueezy. The plan attached to the key determines which paid features light up.
+- mcph orchestrator + dashboard + team sign-up
+- Unlimited MCP servers per user
+- Opt-in usage analytics (30-day retention)
+- Compliance test runner
+- Shared servers, admin controls, centralised billing
+- Priority support
+
+Free tier is hosted-only at [mcp.hosting](https://mcp.hosting) — no self-host install. License keys are purchased on [mcp.hosting/pricing](https://mcp.hosting/pricing) via LemonSqueezy. Every Team subscription auto-generates a self-host license key + GHCR pull token in your hosted dashboard at **Settings → Self-host**.
 
 ## Prerequisites
 
+- An active **Team** subscription at [mcp.hosting/pricing](https://mcp.hosting/pricing). Copy your self-host license key and GHCR pull token from the hosted dashboard at **Settings → Self-host**. You need both to deploy.
 - Linux server (Ubuntu 22.04+ recommended) or a Kubernetes cluster.
 - A domain name pointed at your server (single A record).
 - Docker Engine 24+ and Docker Compose v2+ *(for the Compose path)*, or `kubectl` + Helm 3+ *(for the Helm path)*.
@@ -40,18 +40,22 @@ License keys are purchased on [mcp.hosting/pricing](https://mcp.hosting/pricing)
 git clone https://github.com/yawlabs/mcp-hosting-deploy.git
 cd mcp-hosting-deploy/docker-compose
 
-# 2. Generate secrets + copy the env template
+# 2. Authenticate to GHCR with your self-host pull token
+#    (obtainable at mcp.hosting Settings → Self-host → GHCR token)
+echo $MCPH_GHCR_TOKEN | docker login ghcr.io -u self-host --password-stdin
+
+# 3. Copy the env template + fill in required values
 cp .env.example .env
-# Edit .env — at minimum set DOMAIN, BASE_URL, POSTGRES_PASSWORD, COOKIE_SECRET,
+# Edit .env — set DOMAIN, BASE_URL, POSTGRES_PASSWORD, COOKIE_SECRET,
+# MCP_HOSTING_LICENSE_KEY, GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET,
 # EMAIL_FROM, and the three AWS_* variables for SES.
-# Optional: set MCP_HOSTING_LICENSE_KEY to unlock paid features.
 
-# 3. Point your domain's A record at this server's public IP.
+# 4. Point your domain's A record at this server's public IP.
 
-# 4. Bring everything up.
+# 5. Bring everything up.
 docker compose up -d
 
-# 5. Open https://your-domain.example — Caddy will provision a Let's Encrypt
+# 6. Open https://your-domain.example — Caddy will provision a Let's Encrypt
 #    certificate automatically (usually under 60 seconds).
 ```
 
@@ -92,15 +96,19 @@ That's it — one record. Caddy handles TLS automatically via Let's Encrypt.
 
 ## License key activation
 
-1. Subscribe to the **Team plan** at [mcp.hosting/pricing](https://mcp.hosting/pricing) ($15/seat/mo). Every Team subscription auto-generates a self-host license key, viewable in your hosted dashboard at **Settings → Self-host license key**.
-2. Copy the key. Format: `mcph_sh_<hex>`.
-3. Set it in your self-host environment:
+The license key is **required on first boot** — the app will not start without it. Subscribe to the **Team plan** at [mcp.hosting/pricing](https://mcp.hosting/pricing) ($15/seat/mo). Every Team subscription auto-generates a self-host license key (`mcph_sh_<hex>`) and a scoped GHCR pull token, both visible in your hosted dashboard at **Settings → Self-host**.
+
+1. Copy the license key and set it in `.env`:
    ```
    MCP_HOSTING_LICENSE_KEY=mcph_sh_...
    ```
-4. Restart the app container: `docker compose restart mcp-hosting-app`.
+2. Copy the GHCR pull token and authenticate your Docker client once:
+   ```
+   echo $MCPH_GHCR_TOKEN | docker login ghcr.io -u self-host --password-stdin
+   ```
+3. Start the stack: `docker compose up -d`.
 
-On first boot, the instance validates against `mcp.hosting/api/license/validate` and stamps itself as the owner of that key — **one key, one instance.** Seat + plan changes propagate within 15 minutes (or click **Revalidate now** in your self-host's Settings for instant sync). If the license API is unreachable, cached paid features continue to work under a 7-day grace period; after that the instance falls back to free-tier features until the next successful validation. Moving to new hardware? Click **Unbind installation** in Settings, then validate on the new instance. See [docs/license.md](./docs/license.md) for the full behaviour.
+On first boot, the instance validates against `mcp.hosting/api/license/validate` and stamps itself as the owner of that key — **one key, one instance.** Seat + plan changes propagate within 15 minutes (or click **Revalidate now** in your self-host's Settings for instant sync). If the license API is unreachable, cached capabilities continue to work under a 24-hour grace period; after that the instance refuses to serve requests until the next successful validation. Moving to new hardware? Click **Unbind installation** in Settings, then activate on the new instance. See [docs/license.md](./docs/license.md) for the full behaviour, [docs/self-host-token.md](./docs/self-host-token.md) for GHCR auth details.
 
 ## Upgrades
 
@@ -170,7 +178,7 @@ Uses **Streamable HTTP** per the [MCP spec 2025-11-25](https://modelcontextproto
 
 ## Managed alternative
 
-If you don't need self-host specifically, [mcp.hosting](https://mcp.hosting) is the same code running as a managed service — same dashboard, same mcph CLI, no ops. $9/mo Pro, $15/seat Team. Self-host makes sense when data sovereignty or contract terms require it; otherwise the hosted service is faster to set up and always current.
+[mcp.hosting](https://mcp.hosting) runs the same code as a managed service — same dashboard, same mcph CLI, no ops. Free tier and $9/mo Pro are hosted-only. Self-host is bundled with every **Team** subscription ($15/seat/mo) alongside the hosted Team features. Pick self-host when data sovereignty or contract terms require it; otherwise the hosted Team plan is faster to set up and always current.
 
 ## Testing + validation
 

@@ -2,6 +2,10 @@
 
 Single-domain deploy on Fly's managed platform. No wildcard DNS needed — consumer self-host uses one domain.
 
+## Prerequisites
+
+Grab your self-host license key + GHCR pull token from [mcp.hosting](https://mcp.hosting) → Settings → Self-host. Both are issued with every Team subscription. You need both to deploy.
+
 ## Quick start
 
 ```bash
@@ -9,15 +13,26 @@ Single-domain deploy on Fly's managed platform. No wildcard DNS needed — consu
 curl -L https://fly.io/install.sh | sh
 fly auth login
 
-# 2. Launch the app from this directory (reuses fly.toml)
+# 2. Pull the private image locally + re-push it into Fly's registry.
+#    Fly pulls images as an unauthenticated client by default, so you
+#    mirror the image into registry.fly.io (where Fly auths as you).
+echo $MCPH_GHCR_TOKEN | docker login ghcr.io -u self-host --password-stdin
+docker pull ghcr.io/yawlabs/mcp-hosting:latest
+docker tag ghcr.io/yawlabs/mcp-hosting:latest registry.fly.io/<app-name>:deployment-$(date +%s)
+fly auth docker
+docker push registry.fly.io/<app-name>:deployment-$(date +%s)
+
+# 3. Launch the app from this directory (reuses fly.toml).
+#    Update fly.toml's `image =` to point at the registry.fly.io tag you
+#    just pushed, or pass --image on the command line.
 cd fly
 fly launch --copy-config --no-deploy
 
-# 3. Provision backing services
+# 4. Provision backing services
 fly postgres create      # managed Postgres cluster; attach to your app when prompted
 fly redis create          # managed Redis/Valkey (Upstash-backed)
 
-# 4. Set secrets
+# 5. Set secrets
 #    Fly's `redis create` gives you a REDIS_URL like
 #    redis://default:PASSWORD@fly-xxx.upstash.io:6379 — split it into
 #    REDIS_HOST / REDIS_PORT / REDIS_AUTH_TOKEN because the app reads
@@ -33,13 +48,15 @@ fly secrets set \
   AWS_SECRET_ACCESS_KEY=... \
   AWS_REGION=us-east-1 \
   EMAIL_FROM="noreply@your-domain.example" \
-  MCP_HOSTING_LICENSE_KEY="mcph_sh_..."   # optional -- omit for free-tier
+  MCP_HOSTING_LICENSE_KEY="mcph_sh_..."   # REQUIRED — app refuses to boot without it
 
 # DATABASE_URL is set automatically when you attach the Postgres app.
 
-# 5. Deploy
+# 6. Deploy
 fly deploy
 ```
+
+Upgrades require re-running steps 2 (pull new tag from GHCR, push to registry.fly.io) before each `fly deploy`.
 
 ## Custom domain
 
@@ -60,7 +77,7 @@ Add the DNS records shown by that command. Fly provisions Let's Encrypt automati
 | `REDIS_HOST` / `REDIS_PORT` / `REDIS_AUTH_TOKEN` | Split from the `REDIS_URL` that `fly redis create` emits |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_REGION` | SES credentials for magic-link email |
 | `EMAIL_FROM` | Verified SES sender identity |
-| `MCP_HOSTING_LICENSE_KEY` | Team license key from mcp.hosting (optional; free-tier if unset) |
+| `MCP_HOSTING_LICENSE_KEY` | Team license key from mcp.hosting (required; app refuses to boot without it) |
 
 `DATABASE_URL` is injected by Fly when you attach the Postgres app. The Redis (Upstash) app emits `REDIS_URL` — you need to parse out the host, port, and password yourself and set them as three separate secrets (the app doesn't read `REDIS_URL`).
 

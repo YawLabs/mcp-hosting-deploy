@@ -17,7 +17,10 @@ spec:
       containerConcurrency: 250
       timeoutSeconds: 3600
       containers:
-        - image: ghcr.io/yawlabs/mcp-hosting:latest
+        # Point at your Artifact Registry mirror of the private GHCR image —
+        # see README.md "Mirror the private image into Artifact Registry".
+        # Example: us-central1-docker.pkg.dev/PROJECT_ID/mcp-hosting/mcp-hosting:latest
+        - image: us-central1-docker.pkg.dev/YOUR_PROJECT_ID/mcp-hosting/mcp-hosting:latest
           ports:
             - containerPort: 3000
           env:

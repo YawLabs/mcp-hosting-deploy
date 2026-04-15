@@ -112,6 +112,7 @@ DATABASE_URL=postgresql://mcphosting:${pw}@postgres:5432/mcphosting
 DATABASE_SSL=false
 REDIS_HOST=redis
 REDIS_PORT=6379
+REDIS_TLS=false
 COOKIE_SECRET=${cookie}
 EMAIL_FROM=noreply@localhost
 AWS_REGION=us-east-1

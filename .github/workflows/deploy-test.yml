@@ -20,6 +20,7 @@ concurrency:
 
 permissions:
   contents: read
+  packages: read  # needed to pull the private ghcr.io/yawlabs/mcp-hosting image
 
 jobs:
   test:
@@ -44,6 +45,14 @@ jobs:
       - name: Set up Helm
         if: matrix.target == 'helm'
         uses: azure/setup-helm@v4
+
+      - name: Log in to GHCR
+        if: matrix.target == 'docker-compose'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run target
         run: bash test.sh --target=${{ matrix.target }}

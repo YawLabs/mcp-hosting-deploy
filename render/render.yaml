@@ -4,6 +4,13 @@ services:
     runtime: image
     image:
       url: ghcr.io/yawlabs/mcp-hosting:latest
+      # The image is private. Add a "Registry Credential" in your Render
+      # account (Account Settings → Registry Credentials) named
+      # "ghcr-mcp-hosting" with username "self-host" and your GHCR pull
+      # token from mcp.hosting → Settings → Self-host, then reference it:
+      creds:
+        fromRegistryCreds:
+          name: ghcr-mcp-hosting
     envVars:
       - key: DATABASE_URL
         fromDatabase:

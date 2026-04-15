@@ -1,27 +1,33 @@
 # License keys
 
-Paid features on a self-hosted instance are gated by `MCP_HOSTING_LICENSE_KEY`. Without a key, the instance runs as free-tier — the mcph orchestrator, dashboard, 3-server-per-user limit, 7-day analytics retention. With a key, the plan attached to it enables Pro or Team features (unlimited servers, 30-day retention, Team admin controls, priority support).
+Self-hosted instances are gated by `MCP_HOSTING_LICENSE_KEY`. Self-host is a **Team**-plan capability — every Team subscription at [mcp.hosting/pricing](https://mcp.hosting/pricing) auto-issues a self-host license key. Without a valid key, the app refuses to boot.
+
+Free tier is hosted-only. There is no free self-host mode.
 
 ## Lifecycle
 
 ### Purchase
 
-Buy a plan at [mcp.hosting/pricing](https://mcp.hosting/pricing). LemonSqueezy emails the key immediately after checkout. Format: `lk_live_<random>`.
+Buy a Team subscription at [mcp.hosting/pricing](https://mcp.hosting/pricing). On checkout, the hosted dashboard at **Settings → Self-host** shows your self-host license key and the GHCR pull token used to fetch the image.
+
+Key format: `mcph_sh_<32-hex-chars>`.
 
 ### Activation
 
-Set the env var and restart the app container:
+Set the env var and start the stack:
 
 ```bash
 # Docker Compose
-echo "MCP_HOSTING_LICENSE_KEY=lk_live_..." >> .env
-docker compose restart mcp-hosting-app
+echo "MCP_HOSTING_LICENSE_KEY=mcph_sh_..." >> .env
+docker compose up -d
 
 # Helm
 helm upgrade mcp-hosting ./helm/mcp-hosting \
-  --set licenseKey=lk_live_... \
+  --set licenseKey=mcph_sh_... \
   --reuse-values
 ```
+
+GHCR pull-token setup is a separate step — see [self-host-token.md](./self-host-token.md).
 
 ### Validation flow
 
@@ -29,20 +35,24 @@ On every boot:
 
 1. App reads `MCP_HOSTING_LICENSE_KEY` from the environment.
 2. POSTs to `https://mcp.hosting/api/license/validate` with the key in the body.
-3. Caches the response in memory for 24 hours.
-4. Sets up a background timer that revalidates every 24 hours.
+3. First boot: the license server stamps this instance as the owner of the key (one key, one instance).
+4. Caches the response in memory; sets a background revalidation timer (every hour).
 
-If the initial validation succeeds, the plan + features are applied immediately. If it fails (network error, API down), the app boots in free-tier mode and logs a warning — the background timer keeps retrying.
+If the initial validation fails (invalid key, network error, API down, key already bound to a different instance), the app logs the reason and exits. No partial-functionality fallback.
 
 ### Grace period
 
-If the license API becomes unreachable AFTER a successful validation (e.g. your egress firewall starts blocking outbound HTTPS), the cached license stays active for **7 days**. During that window the app keeps revalidating in the background. After 7 days with no successful check, the app drops back to free-tier features until the next successful validation.
+If the license API becomes unreachable **after** a successful validation (e.g. egress firewall blocks outbound HTTPS), the cached validation stays valid for **24 hours**. During that window the app keeps serving requests and keeps retrying in the background. After 24 hours with no successful recheck, the app returns HTTP 503 on all routes until validation recovers.
 
-Grace-period tuning is intentional: self-hosted instances in restrictive networks need a buffer, but we don't want permanent offline use of paid features. 7 days is roughly one business-week of downtime, which covers all sensible network outages.
+24 hours is deliberately short — long enough to tolerate a DNS blip or a brief egress-firewall change window, short enough to surface actual network policy issues quickly. If you need longer offline tolerance, email [support@mcp.hosting](mailto:support@mcp.hosting).
+
+### Rebinding to new hardware
+
+On the original instance, click **Unbind installation** in **Settings → Self-host**. Then activate on the new instance. The unbind is idempotent and takes effect within 15 minutes, or instantly if you click **Revalidate now** on both sides.
 
 ## Troubleshooting
 
-### "I set the key but paid features aren't on"
+### "I set the key but the app won't start"
 
 Check the app startup logs:
 
@@ -50,38 +60,33 @@ Check the app startup logs:
 docker compose logs mcp-hosting-app | grep -i license
 ```
 
-Expected on a healthy activation:
-
-```
-license_init: Validating license key on startup...
-license_init: License validated: plan=pro, valid=true
-```
-
 Failure modes:
 
 | Log line | Cause | Fix |
 |---|---|---|
-| `No MCP_HOSTING_LICENSE_KEY set, license features disabled` | Env var not passed through | Check `.env` is loaded; redeploy |
-| `Could not reach license API on startup. Starting with free features.` | Outbound HTTPS to mcp.hosting blocked | Allow egress to `mcp.hosting` port 443 |
-| `License validated: plan=free, valid=false` | Key is revoked, refunded, or expired | Check subscription status on LemonSqueezy; contact support |
+| `No MCP_HOSTING_LICENSE_KEY set; refusing to boot` | Env var not passed through | Check `.env` is loaded; redeploy |
+| `License validation failed: could not reach mcp.hosting` | Outbound HTTPS to mcp.hosting blocked | Allow egress to `mcp.hosting` port 443 |
+| `License validation failed: key bound to a different installation` | Same key already activated on another instance | Unbind on the original; see "Rebinding" above |
+| `License validation failed: subscription inactive` | Subscription cancelled, refunded, or past-due | Check subscription status on LemonSqueezy |
 
 ### "Do I need to keep the key secret?"
 
-Yes — treat it like any other credential. Anyone with the key can turn on paid features on their own instance. Rotate by cancelling + re-buying if you believe it's leaked.
+Yes — treat it like any other credential. The GHCR pull token is separate; both should be protected. If either leaks, rotate by contacting [support@mcp.hosting](mailto:support@mcp.hosting).
 
 ### "What happens on key rotation?"
 
-Update the env var, restart the app. Old key is invalidated immediately on the license API side. Current-app cached state is torn down on container restart.
+Update the env var, restart the app. Old key is invalidated immediately on the license API side. The new key re-binds the instance on first successful validation.
 
 ### "Will my existing data survive license changes?"
 
-Yes. License state is orthogonal to data — user accounts, MCP servers, tokens, analytics all persist through activation / deactivation / key rotation. Downgrades to free-tier just disable features (e.g. pause servers beyond the 3-per-user limit); data is preserved.
+Yes. License state is orthogonal to data — user accounts, MCP servers, tokens, analytics all persist through key rotation. A key that lapses (subscription ends) stops the app from booting but does not delete data; reactivate by renewing the subscription.
 
 ### "Can I run fully offline / air-gapped?"
 
-Today, no. The license validation handshake requires reachability to `mcp.hosting` at boot, and re-validation within the 7-day grace window. If you need fully-air-gapped operation, email [support@mcp.hosting](mailto:support@mcp.hosting) — we're open to exceptions for specific use cases (typically involves a time-bound offline license with manual renewal).
+Today, no. The license validation handshake requires reachability to `mcp.hosting` at boot and within the 24-hour grace window. If you need fully-air-gapped operation, email [support@mcp.hosting](mailto:support@mcp.hosting) — air-gapped deployments are handled as custom contracts.
 
 ## Related
 
+- [docs/self-host-token.md](./self-host-token.md) — GHCR pull token / image-access setup.
 - [docs/troubleshooting.md](./troubleshooting.md) — broader issue list.
 - [LemonSqueezy subscription management](https://app.lemonsqueezy.com/) — cancel, change plan, view invoices.

@@ -16,6 +16,9 @@ services:
       - REDIS_HOST=${REDIS_HOST:-redis}
       - REDIS_PORT=${REDIS_PORT:-6379}
       - REDIS_AUTH_TOKEN=${REDIS_AUTH_TOKEN:-}
+      # Bundled valkey:8 has no TLS; traffic stays on the compose network.
+      # Operators pointing at managed ElastiCache/Upstash should unset this.
+      - REDIS_TLS=false
       - MCP_HOSTING_LICENSE_KEY=${MCP_HOSTING_LICENSE_KEY:-}
       - COOKIE_SECRET=${COOKIE_SECRET}
       - BASE_URL=${BASE_URL}

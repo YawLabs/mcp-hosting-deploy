@@ -2,6 +2,18 @@
 
 Step-by-step walkthrough for bringing up a production self-hosted instance of mcp.hosting on a single Linux server via Docker Compose. For Kubernetes, jump to the [Helm chart](../helm/mcp-hosting/).
 
+## 0. Prerequisite — Team subscription
+
+Self-host is a **Team**-plan capability. Before anything else:
+
+1. Buy a Team subscription at [mcp.hosting/pricing](https://mcp.hosting/pricing) ($15/seat/month).
+2. Open the hosted dashboard at **Settings → Self-host**.
+3. Copy two values that were issued on subscription creation:
+   - **License key** — `mcph_sh_<hex>`. Sets `MCP_HOSTING_LICENSE_KEY` inside the running container.
+   - **GHCR pull token** — `mcph_ghcr_<hex>`. Used once with `docker login ghcr.io` so your Docker client can fetch the private image.
+
+Without an active Team subscription there is no path to self-host — free tier is hosted-only at [mcp.hosting](https://mcp.hosting).
+
 ## 1. Server
 
 - Ubuntu 22.04+ (or any modern Linux) with a public IPv4 address.
@@ -36,6 +48,10 @@ Without SES credentials, logins will fail — nobody can get into the dashboard.
 ```bash
 git clone https://github.com/yawlabs/mcp-hosting-deploy.git
 cd mcp-hosting-deploy/docker-compose
+
+# Authenticate to the private GHCR image (one-time per host)
+echo $MCPH_GHCR_TOKEN | docker login ghcr.io -u self-host --password-stdin
+
 cp .env.example .env
 ```
 
@@ -47,9 +63,10 @@ Edit `.env` and fill in the required variables:
 | `BASE_URL` | Yes | `https://mcp.example.com` — full URL with scheme |
 | `POSTGRES_PASSWORD` + `DATABASE_URL` | Yes | Match both — the URL embeds the password |
 | `COOKIE_SECRET` | Yes | `openssl rand -hex 32` |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | Yes | GitHub OAuth app — dashboard sign-in |
 | `EMAIL_FROM` | Yes | Verified SES sender |
 | `AWS_REGION` / `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Yes | For SES |
-| `MCP_HOSTING_LICENSE_KEY` | No | Paid features; free tier works without |
+| `MCP_HOSTING_LICENSE_KEY` | Yes | `mcph_sh_<hex>` from mcp.hosting → Settings → Self-host. App refuses to boot without it. |
 
 ## 5. Boot
 
@@ -97,15 +114,9 @@ Every team member who wants to use the orchestrator installs `@yawlabs/mcph` in 
 
 Tokens are created in the dashboard under **Settings → API Tokens**. See [docs/mcph-client.md](./mcph-client.md) for per-client config paths (Claude Desktop, Cursor, VS Code).
 
-## 8. License key (optional)
+## 8. License validation behaviour
 
-Running as free-tier is fine for evaluation. To unlock Pro or Team features on your self-hosted instance:
-
-1. Buy a plan at [mcp.hosting/pricing](https://mcp.hosting/pricing). LemonSqueezy emails the key.
-2. Set `MCP_HOSTING_LICENSE_KEY=lk_live_...` in `.env`.
-3. `docker compose restart mcp-hosting-app`.
-
-The app validates the key on boot, caches the result for 24 hours, and re-validates in the background. Grace period is 7 days if the license API becomes unreachable. Full lifecycle: [docs/license.md](./license.md).
+The license key set in step 4 validates against `mcp.hosting/api/license/validate` on first boot and once per hour after that. If the license server is unreachable after a successful validation, the cached state stays valid for 24 hours; after that the app returns HTTP 503 until validation recovers. Full lifecycle: [docs/license.md](./license.md).
 
 ## 9. Health check + monitoring
 
@@ -121,7 +132,7 @@ The app validates the key on boot, caches the result for 24 hours, and re-valida
 - **Firewall:** only 80 and 443 should be open. Block direct access to 5432 (Postgres) and 6379 (Redis).
 - **Backups:** tested restore end-to-end at least once before you rely on them.
 - **Secrets:** `.env` is gitignored. Don't commit it. Store it outside the repo or in your secret manager.
-- **License:** the license grace-period window is 7 days. If your firewall blocks outbound HTTPS to `mcp.hosting`, paid features drop back to free-tier after that window.
+- **License + image pull:** both the license validation and the GHCR pull token require outbound HTTPS. Whitelist `mcp.hosting:443` and `ghcr.io:443`. If either is blocked, the app either refuses to boot or degrades to 503 after the 24-hour grace window.
 
 ## 12. What to read next
 

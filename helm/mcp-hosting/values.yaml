@@ -17,11 +17,30 @@
 # Your root domain — the dashboard + mcph orchestrator live here.
 domain: mcp.example.com
 
-# -- License key (optional -- omit or leave empty for free tier)
+# -- License key (REQUIRED — self-host requires a Team subscription)
+# Get yours at https://mcp.hosting/pricing → Settings → Self-host.
+# Format: mcph_sh_<hex>
 licenseKey: ""
 
 # -- Namespace (created if it doesn't exist)
 namespace: mcp-hosting
+
+# =============================================================================
+# Image pull authentication (REQUIRED — image is private)
+# =============================================================================
+# The mcp-hosting image on GHCR is gated by your self-host GHCR token
+# (issued alongside the license key at Settings → Self-host on mcp.hosting).
+# Create an imagePullSecret in your cluster once before `helm install`:
+#
+#   kubectl create secret docker-registry ghcr-mcp-hosting \
+#     --namespace mcp-hosting \
+#     --docker-server=ghcr.io \
+#     --docker-username=self-host \
+#     --docker-password="$MCPH_GHCR_TOKEN"
+#
+# Then reference it here:
+imagePullSecrets:
+  - name: ghcr-mcp-hosting
 
 # =============================================================================
 # App (mcp-hosting API + dashboard)
