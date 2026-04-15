@@ -52,7 +52,12 @@ services:
   # postgres -- PostgreSQL 18
   # ---------------------------------------------------------------------------
   postgres:
-    image: postgres:18
+    # pgvector/pgvector:pg18 is postgres:18 with the pgvector extension
+    # pre-installed. The app's migrations run `CREATE EXTENSION IF NOT
+    # EXISTS vector` on startup for the Voyage semantic-rerank feature;
+    # plain postgres:18 doesn't ship pgvector, so the app crash-loops
+    # before ever binding /health.
+    image: pgvector/pgvector:pg18
     restart: unless-stopped
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-mcphosting}

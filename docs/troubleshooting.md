@@ -61,6 +61,7 @@ Top reasons:
 | `DATABASE_URL: missing required env var` | `.env` not loaded / missing var | Verify `docker compose config` shows the env var |
 | `getaddrinfo EAI_AGAIN postgres` | Postgres container isn't up yet | Wait 30s; if persistent, check `docker compose ps postgres` |
 | `Client network socket disconnected before secure TLS` / `FATAL: Database migration failed` | App defaulted `DATABASE_SSL=require` but bundled `postgres:18` has no TLS | Already hard-coded to `DATABASE_SSL=false` in `docker-compose.yml`. If you swap to external managed Postgres, drop the override. |
+| `PostgresError: extension "vector" is not available` | Using vanilla `postgres:18` instead of the pgvector-enabled image | The bundled compose already uses `pgvector/pgvector:pg18`. If you're running against external Postgres (RDS, Cloud SQL, etc.), enable the `vector` extension on your instance before upgrading. |
 | `FATAL: Could not connect to Redis/Valkey: Connection is closed` | App defaulted Redis TLS on but bundled `valkey:8` has no TLS | Already hard-coded to `REDIS_TLS=false` in `docker-compose.yml`. If you swap to managed ElastiCache / Upstash, drop the override. |
 | `ECONNREFUSED 127.0.0.1:6379` | `REDIS_HOST` resolved to localhost inside the container | Set `REDIS_HOST=redis` (the Docker Compose service name, not localhost) |
 | `Missing required env var: REDIS_HOST` | You set `REDIS_URL` instead | The app reads `REDIS_HOST` + `REDIS_PORT` + optional `REDIS_AUTH_TOKEN` separately. Split the URL or set the three pieces directly. |
