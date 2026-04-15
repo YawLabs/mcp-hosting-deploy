@@ -6,9 +6,23 @@ Cloud Run provides a fully managed serverless container platform with automatic 
 
 - [Google Cloud CLI](https://cloud.google.com/sdk/docs/install) (`gcloud`) and [Docker](https://docs.docker.com/engine/install/)
 - A GCP project with billing enabled
+- Active **Team** subscription at [mcp.hosting/pricing](https://mcp.hosting/pricing). Copy your self-host license key and GHCR pull token from the hosted dashboard at **Settings → Self-host**.
+
+## One-command setup
+
+The `bootstrap.sh` script in this directory collapses all of the Artifact Registry + Cloud SQL + Memorystore + VPC connector + image-mirror + Secret Manager + Cloud Run deploy into a single interactive run:
+
+```bash
+GCP_PROJECT=my-gcp-project REGION=us-central1 bash bootstrap.sh
+```
+
+It's idempotent — re-run safely if something fails partway, or use it for upgrades (it'll re-mirror the latest GHCR tag and redeploy). The long form below is the manual equivalent if you want to customise each step or plug into existing Cloud SQL / Memorystore you already run.
+
+## Manual steps (if not using bootstrap.sh)
+
+Manual prerequisites beyond the above:
 - Cloud SQL PostgreSQL instance (or use [Cloud SQL Auth Proxy](https://cloud.google.com/sql/docs/postgres/connect-run))
 - Memorystore Redis instance (or use the Valkey sidecar pattern)
-- Active **Team** subscription at [mcp.hosting/pricing](https://mcp.hosting/pricing). Copy your self-host license key and GHCR pull token from the hosted dashboard at **Settings → Self-host**.
 
 ## Mirror the private image into Artifact Registry
 
@@ -50,6 +64,7 @@ gcloud run deploy mcp-hosting \
   --cpu 1 \
   --memory 512Mi \
   --timeout 3600 \
+  --set-env-vars "SELF_HOSTED=true" \
   --set-env-vars "NODE_ENV=production" \
   --set-env-vars "BASE_URL=https://mcp.example.com" \
   --set-env-vars "DOMAIN=mcp.example.com" \

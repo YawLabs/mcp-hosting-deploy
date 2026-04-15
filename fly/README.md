@@ -6,6 +6,16 @@ Single-domain deploy on Fly's managed platform. No wildcard DNS needed — consu
 
 Grab your self-host license key + GHCR pull token from [mcp.hosting](https://mcp.hosting) → Settings → Self-host. Both are issued with every Team subscription. You need both to deploy.
 
+## One-command setup
+
+The `bootstrap.sh` script in this directory collapses all of the Fly app + Postgres + Redis + image-mirror + secrets setup into a single interactive run:
+
+```bash
+APP_NAME=my-mcph REGION=iad bash bootstrap.sh
+```
+
+It's idempotent — re-run safely if something fails partway, or use it for upgrades (it'll re-mirror the latest GHCR tag and redeploy). The long form below is the manual equivalent if you want to customise each step.
+
 ## Quick start
 
 ```bash
