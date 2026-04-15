@@ -5,7 +5,9 @@
 #   fly redis create       -- provisions a managed Redis (Upstash) instance
 #
 # After creating backing services, set secrets:
-#   fly secrets set DATABASE_URL=... REDIS_URL=... COOKIE_SECRET=... MCP_HOSTING_LICENSE_KEY=mcph_sh_...
+#   fly secrets set DATABASE_URL=... REDIS_HOST=... REDIS_PORT=6379 REDIS_AUTH_TOKEN=... \
+#                   COOKIE_SECRET=... GITHUB_CLIENT_ID=... GITHUB_CLIENT_SECRET=... \
+#                   MCP_HOSTING_LICENSE_KEY=mcph_sh_...
 
 app = "mcp-hosting"
 primary_region = "iad"

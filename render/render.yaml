@@ -6,14 +6,34 @@ services:
       url: ghcr.io/yawlabs/mcp-hosting:latest
     envVars:
       - key: DATABASE_URL
+        fromDatabase:
+          name: mcp-hosting-db
+          property: connectionString
+      - key: REDIS_HOST
         sync: false
-      - key: REDIS_URL
+      - key: REDIS_PORT
+        value: "6379"
+      - key: REDIS_AUTH_TOKEN
         sync: false
       - key: COOKIE_SECRET
         generateValue: true
+      - key: GITHUB_CLIENT_ID
+        sync: false
+      - key: GITHUB_CLIENT_SECRET
+        sync: false
       - key: MCP_HOSTING_LICENSE_KEY
         sync: false
       - key: BASE_DOMAIN
+        sync: false
+      - key: BASE_URL
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: AWS_REGION
+        value: us-east-1
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
         sync: false
     healthCheckPath: /health
 

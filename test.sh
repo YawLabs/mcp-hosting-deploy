@@ -109,12 +109,15 @@ POSTGRES_USER=mcphosting
 POSTGRES_PASSWORD=${pw}
 POSTGRES_DB=mcphosting
 DATABASE_URL=postgresql://mcphosting:${pw}@postgres:5432/mcphosting
-REDIS_URL=redis://redis:6379
+REDIS_HOST=redis
+REDIS_PORT=6379
 COOKIE_SECRET=${cookie}
 EMAIL_FROM=noreply@localhost
 AWS_REGION=us-east-1
 AWS_ACCESS_KEY_ID=
 AWS_SECRET_ACCESS_KEY=
+GITHUB_CLIENT_ID=ci-test-client-id
+GITHUB_CLIENT_SECRET=ci-test-client-secret-placeholder
 ENV
 
   pushd "$SCRIPT_DIR/docker-compose" >/dev/null

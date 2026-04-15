@@ -186,4 +186,4 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## License
 
-Source-available; not OSS. You may run this inside your organisation for your own use. Redistribution and operating a competing commercial MCP hosting service are prohibited. See [LICENSE](./LICENSE) for full terms.
+Source-available under the [Elastic License 2.0](./LICENSE) — not OSS. You may use, copy, modify, and redistribute the software, including for internal production use by your organisation. You may **not** offer it to third parties as a hosted or managed MCP service, disable or circumvent the license-key functionality, or remove the copyright and licensing notices. See [LICENSE](./LICENSE) for full terms.

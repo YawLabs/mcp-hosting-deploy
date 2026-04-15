@@ -34,4 +34,4 @@ Open an issue on GitHub with:
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the [MIT License](./LICENSE).
+By contributing, you agree that your contributions will be licensed under the [Elastic License 2.0](./LICENSE).
