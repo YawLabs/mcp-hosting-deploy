@@ -1,5 +1,13 @@
 name: Deploy Tests
 
+# Offline/schema-only smoke tests for the shipped deploy paths — fast,
+# no secrets, runs on every PR and push.
+#
+# The docker-compose E2E (full pull + boot + /health) runs out-of-band
+# on mcp-build as an hourly systemd timer, logging to
+# /var/log/mcp-deploy-test.log. That avoids the GHCR private-image
+# auth friction in GHA and reuses infra we already maintain.
+
 on:
   pull_request:
     branches: [master]
@@ -8,11 +16,8 @@ on:
   workflow_dispatch:
     inputs:
       target:
-        description: "Single target to run (docker-compose, helm, fly, cloudrun) or empty for all"
+        description: "Single target to run (helm, fly, cloudrun) or empty for all"
         default: ""
-      image:
-        description: "App image to test against"
-        default: "ghcr.io/yawlabs/mcp-hosting:latest"
 
 concurrency:
   group: deploy-test-${{ github.ref }}
@@ -20,7 +25,6 @@ concurrency:
 
 permissions:
   contents: read
-  packages: read  # needed to pull the private ghcr.io/yawlabs/mcp-hosting image
 
 jobs:
   test:
@@ -29,7 +33,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [docker-compose, helm, fly, cloudrun]
+        target: [helm, fly, cloudrun]
     steps:
       - uses: actions/checkout@v4
 
@@ -46,35 +50,8 @@ jobs:
         if: matrix.target == 'helm'
         uses: azure/setup-helm@v4
 
-      # Pre-seed ~/.docker/config.json so `docker compose pull` can fetch
-      # the private ghcr.io/yawlabs/mcp-hosting image. We don't use
-      # docker/login-action because `docker login` does an unscoped /v2/
-      # probe that fails on ghcr.io with classic PATs ("denied: denied")
-      # — even when the PAT itself works fine against the OCI API
-      # (verified via curl: /token + bearer manifest fetch returns 200).
-      # Writing the config directly skips the probe; `docker pull`
-      # attaches these creds and follows the proper scoped
-      # token-service flow that actually works.
-      - name: Seed GHCR creds
-        if: matrix.target == 'docker-compose'
-        env:
-          PAT: ${{ secrets.MCPH_GHCR_PULL_TOKEN }}
-        run: |
-          mkdir -p ~/.docker
-          AUTH=$(printf 'jeffyaw:%s' "$PAT" | base64 -w0)
-          cat > ~/.docker/config.json <<EOF
-          {
-            "auths": {
-              "ghcr.io": { "auth": "$AUTH" }
-            }
-          }
-          EOF
-          chmod 600 ~/.docker/config.json
-
       - name: Run target
         run: bash test.sh --target=${{ matrix.target }}
-        env:
-          IMAGE: ${{ github.event.inputs.image || 'ghcr.io/yawlabs/mcp-hosting:latest' }}
 
       - name: Upload results
         if: always()
