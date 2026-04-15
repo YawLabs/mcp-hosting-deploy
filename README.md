@@ -158,6 +158,7 @@ Fly and Cloud Run each have their own README with prerequisites and first-boot d
 ## Operator documentation
 
 - [docs/getting-started.md](./docs/getting-started.md) — full step-by-step walkthrough.
+- [docs/production-checklist.md](./docs/production-checklist.md) — what to harden before pointing real users at your instance.
 - [docs/upgrade.md](./docs/upgrade.md) — image pull, migration, rollback.
 - [docs/backup-restore.md](./docs/backup-restore.md) — scripts/backup.sh and the restore flow.
 - [docs/license.md](./docs/license.md) — license key lifecycle and grace periods.

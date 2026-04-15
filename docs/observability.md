@@ -27,6 +27,7 @@ Metric families:
 | mcph | `mcp_connect_analytics_failures_total` | counter | `reason` | DB saturation on analytics ingestion |
 | Webhook | `mcp_lemonsqueezy_webhook_total` | counter | `outcome`, `event` | Billing webhook health (hosted only) |
 | Webhook | `mcp_webhook_processing_failures_total` | counter | `provider`, `event` | Well-formed webhooks that failed during processing |
+| License | `mcp_license_grace_remaining_seconds` | gauge | — | Self-host: seconds before instance refuses to serve. Alert at < 12h. `-1` on hosted. |
 
 Plus the default Node process metrics (`process_cpu_seconds_total`,
 `nodejs_heap_size_used_bytes`, event loop lag, open file descriptors,
@@ -177,6 +178,19 @@ groups:
         for: 2m
         annotations:
           summary: "mcp-hosting target down for 2m"
+
+      # Self-host: license grace running out. Once this reaches 0 the
+      # instance starts returning 503 on every API route. The dashboard
+      # also renders an in-app banner when this drops below 12h, but
+      # this fires the pager. -1 means "hosted, not applicable" and is
+      # excluded.
+      - alert: McpHostingLicenseGraceExpiring
+        expr: |
+          mcp_license_grace_remaining_seconds >= 0
+            and mcp_license_grace_remaining_seconds < 43200
+        for: 30m
+        annotations:
+          summary: "Self-host license grace < 12h remaining"
 ```
 
 ## Troubleshooting

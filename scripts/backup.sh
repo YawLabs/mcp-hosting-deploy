@@ -56,7 +56,21 @@ docker compose -f "${COMPOSE_DIR}/docker-compose.yml" exec -T postgres \
 FILE_SIZE=$(du -h "${BACKUP_DIR}/${BACKUP_FILE}" | cut -f1)
 echo "[backup] Created ${BACKUP_DIR}/${BACKUP_FILE} (${FILE_SIZE})"
 
-# Upload to S3 if destination provided
+# Verify the gzip stream parses end-to-end before we declare success or
+# upload — pg_dump silently dropping mid-stream produces a "valid"
+# gzip up to the truncation point, so a separate integrity check is the
+# only way to catch partial writes.
+echo "[backup] Verifying archive integrity..."
+if ! gunzip -t "${BACKUP_DIR}/${BACKUP_FILE}"; then
+  echo "[backup] FAIL: gzip integrity check did not pass — archive is corrupt." >&2
+  exit 1
+fi
+echo "[backup] Integrity OK."
+
+# Upload to S3 if destination provided. For huge databases we recommend
+# the streaming variant in docs/backup-restore.md (pg_dump | gzip | aws
+# s3 cp - s3://...) to avoid pinning a multi-GB temp file. This script's
+# write-then-upload path is the safest default for the common case.
 if [ -n "${S3_DEST}" ]; then
   echo "[backup] Uploading to ${S3_DEST}/${BACKUP_FILE}..."
   aws s3 cp "${BACKUP_DIR}/${BACKUP_FILE}" "${S3_DEST}/${BACKUP_FILE}"

@@ -78,6 +78,36 @@ kubectl -n mcp-hosting exec deploy/mcp-hosting-app -- \
 
 Restore the same way, piping `psql` against `$DATABASE_URL` from inside the pod.
 
+## Streaming backup for very large databases
+
+For multi-hundred-GB databases, holding the dump on local disk
+before uploading is wasteful and may not fit. Stream the dump directly
+through gzip into S3:
+
+```bash
+docker compose exec -T postgres pg_dump -U mcphosting --format=plain mcphosting \
+  | gzip \
+  | aws s3 cp - s3://my-bucket/mcp-backups/mcp-hosting-$(date +%Y%m%d-%H%M%S).sql.gz
+```
+
+Same on Helm:
+
+```bash
+kubectl -n mcp-hosting exec deploy/mcp-hosting-app -- \
+  bash -c 'pg_dump "$DATABASE_URL" | gzip' \
+  | aws s3 cp - s3://my-bucket/mcp-backups/mcp-hosting-$(date +%Y%m%d-%H%M%S).sql.gz
+```
+
+The trade-off vs. `scripts/backup.sh`: the streaming variant skips the
+local `gunzip -t` integrity check (it can't, the bytes are already in
+S3 by the time the pipeline finishes). For huge dumps that's an
+acceptable trade since the alternative is the dump never running at
+all. Run the integrity check manually after upload:
+
+```bash
+aws s3 cp s3://my-bucket/mcp-backups/mcp-hosting-...sql.gz - | gunzip -t
+```
+
 ## Testing your backups
 
 Untested backups aren't backups. At least quarterly, restore a recent snapshot into a throwaway instance and verify:
@@ -86,7 +116,15 @@ Untested backups aren't backups. At least quarterly, restore a recent snapshot i
 2. An existing account can log in (magic-link triggers email; SES has to be working).
 3. MCP servers appear with correct config.
 
-If you skip this, you'll discover the backup was broken the day you actually need it.
+`scripts/backup.sh` runs `gunzip -t` against every produced archive
+before declaring success — so a corrupt dump fails fast at backup time
+rather than silently waiting to bite you at restore time. The
+quarterly drill above is still essential because gzip integrity
+doesn't tell you whether the SQL inside is logically restorable
+against the current schema.
+
+If you skip the quarterly drill, you'll discover the backup was broken
+the day you actually need it.
 
 ## Schema migrations + restore
 
