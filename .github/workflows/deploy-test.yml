@@ -46,24 +46,30 @@ jobs:
         if: matrix.target == 'helm'
         uses: azure/setup-helm@v4
 
-      # GHCR login for the docker-compose E2E which pulls the private
-      # ghcr.io/yawlabs/mcp-hosting image. Uses a shared service-account
-      # PAT with read:packages scope, set as the MCPH_GHCR_PULL_TOKEN
-      # repo secret. The PAT is the same one surfaced to paying Team
-      # customers; a leak just allows free image pulls — license
-      # enforcement happens inside the app via MCP_HOSTING_LICENSE_KEY.
-      # GITHUB_TOKEN + cross-repo package Actions-access was tried and
-      # doesn't work here (login succeeds, pull denies).
-      - name: Log in to GHCR
+      # Pre-seed ~/.docker/config.json so `docker compose pull` can fetch
+      # the private ghcr.io/yawlabs/mcp-hosting image. We don't use
+      # docker/login-action because `docker login` does an unscoped /v2/
+      # probe that fails on ghcr.io with classic PATs ("denied: denied")
+      # — even when the PAT itself works fine against the OCI API
+      # (verified via curl: /token + bearer manifest fetch returns 200).
+      # Writing the config directly skips the probe; `docker pull`
+      # attaches these creds and follows the proper scoped
+      # token-service flow that actually works.
+      - name: Seed GHCR creds
         if: matrix.target == 'docker-compose'
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          # Username is ignored by ghcr.io for classic PATs as long as the
-          # PAT itself is valid — but some docker login handshake paths
-          # reject an unknown literal. Use the PAT owner's login.
-          username: jeffyaw
-          password: ${{ secrets.MCPH_GHCR_PULL_TOKEN }}
+        env:
+          PAT: ${{ secrets.MCPH_GHCR_PULL_TOKEN }}
+        run: |
+          mkdir -p ~/.docker
+          AUTH=$(printf 'jeffyaw:%s' "$PAT" | base64 -w0)
+          cat > ~/.docker/config.json <<EOF
+          {
+            "auths": {
+              "ghcr.io": { "auth": "$AUTH" }
+            }
+          }
+          EOF
+          chmod 600 ~/.docker/config.json
 
       - name: Run target
         run: bash test.sh --target=${{ matrix.target }}
