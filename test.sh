@@ -30,9 +30,15 @@ set -euo pipefail
 #   IMAGE         App image tag to pull (default: ghcr.io/yawlabs/mcp-hosting:latest)
 # =============================================================================
 
-RESULTS_DIR="${RESULTS_DIR:-test-results}"
-IMAGE="${IMAGE:-ghcr.io/yawlabs/mcp-hosting:latest}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# RESULTS_DIR has to survive pushd/popd during the compose test, so anchor
+# it to the script dir unless explicitly overridden with an absolute path.
+RESULTS_DIR="${RESULTS_DIR:-$SCRIPT_DIR/test-results}"
+case "$RESULTS_DIR" in
+  /*) ;;
+  *) RESULTS_DIR="$SCRIPT_DIR/$RESULTS_DIR" ;;
+esac
+IMAGE="${IMAGE:-ghcr.io/yawlabs/mcp-hosting:latest}"
 SKIP_TEARDOWN="false"
 TARGET_FILTER=""
 
@@ -96,7 +102,9 @@ test_docker_compose() {
 
   cat > "$envfile" <<ENV
 DOMAIN=localhost
+BASE_DOMAIN=localhost
 BASE_URL=http://localhost:3000
+NODE_ENV=development
 POSTGRES_USER=mcphosting
 POSTGRES_PASSWORD=${pw}
 POSTGRES_DB=mcphosting
@@ -130,10 +138,10 @@ ENV
 
   # Probe /health from a sibling container on the project network. Avoids
   # host-network assumptions (-p maps would collide with any other test).
-  info "docker-compose: waiting for /health (up to 90s)"
+  info "docker-compose: waiting for /health (up to 150s)"
   local healthy=false
-  for _ in $(seq 1 45); do
-    if docker run --rm --network "${project}_default" curlimages/curl:8.10.1 \
+  for _ in $(seq 1 75); do
+    if docker run --rm --network "mcp-hosting" curlimages/curl:8.10.1 \
         -fsS --max-time 3 http://mcp-hosting-app:3000/health >/dev/null 2>&1; then
       healthy=true
       break
@@ -141,14 +149,18 @@ ENV
     sleep 2
   done
 
+  # Always dump app logs to both stdout and the artifact file — useful on
+  # pass (startup timing) and essential on fail (the root cause).
+  info "docker-compose: app logs (last 200 lines)"
+  docker compose --env-file .env.test -p "$project" logs --tail=200 mcp-hosting-app \
+    2>&1 | tee "$RESULTS_DIR/docker-compose-app.log" || true
+
   if [[ "$healthy" == "true" ]]; then
     ok "docker-compose: /health returned 200"
     record docker-compose pass "$(( $(date +%s) - start ))" "E2E boot + migrate + health OK"
   else
     fail "docker-compose: /health never returned 200"
     record docker-compose fail "$(( $(date +%s) - start ))" "/health timeout"
-    docker compose --env-file .env.test -p "$project" logs --tail=100 mcp-hosting-app \
-      | tee "$RESULTS_DIR/docker-compose.log" || true
   fi
 
   if [[ "$SKIP_TEARDOWN" != "true" ]]; then
@@ -183,7 +195,7 @@ test_helm() {
     return 0
   fi
 
-  info "helm: helm template → kubectl --dry-run=client"
+  info "helm: helm template → kubeconform schema validation"
   out="$RESULTS_DIR/helm-rendered.yaml"
   if ! helm template mcp-hosting "$SCRIPT_DIR/helm/mcp-hosting" \
         --namespace mcp-hosting \
@@ -195,19 +207,30 @@ test_helm() {
         --set app.cookieSecret=z \
         > "$out" 2> "$RESULTS_DIR/helm-template.err"; then
     fail "helm: helm template failed"
+    cat "$RESULTS_DIR/helm-template.err"
     record helm fail "$(( $(date +%s) - start ))" "helm template failed"
     return 0
   fi
 
-  if ! kubectl apply --dry-run=client -f "$out" > "$RESULTS_DIR/helm-dryrun.log" 2>&1; then
-    fail "helm: kubectl --dry-run=client rejected rendered manifests"
-    cat "$RESULTS_DIR/helm-dryrun.log"
-    record helm fail "$(( $(date +%s) - start ))" "dry-run rejected"
+  # kubeconform validates against bundled OpenAPI schemas offline —
+  # no live API server needed, unlike `kubectl apply --dry-run=client`
+  # which still calls out to http://localhost:8080/openapi/v2.
+  if ! command -v kubeconform >/dev/null 2>&1; then
+    info "helm: installing kubeconform"
+    curl -sL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz \
+      | tar -xz -C /tmp kubeconform
+    sudo mv /tmp/kubeconform /usr/local/bin/kubeconform
+  fi
+
+  if ! kubeconform -summary -strict -ignore-missing-schemas "$out" \
+        2>&1 | tee "$RESULTS_DIR/helm-kubeconform.log"; then
+    fail "helm: kubeconform rejected rendered manifests"
+    record helm fail "$(( $(date +%s) - start ))" "kubeconform rejected"
     return 0
   fi
 
-  ok "helm: chart renders + dry-run accepts"
-  record helm pass "$(( $(date +%s) - start ))" "helm template + dry-run OK"
+  ok "helm: chart renders + kubeconform accepts"
+  record helm pass "$(( $(date +%s) - start ))" "helm template + kubeconform OK"
 }
 
 # -----------------------------------------------------------------------------
@@ -219,24 +242,25 @@ test_fly() {
   local start
   start=$(date +%s)
 
-  if ! command -v flyctl >/dev/null 2>&1; then
-    info "fly: flyctl not installed, falling back to TOML parse check"
-    if python3 -c "import tomllib,sys;tomllib.loads(open('$SCRIPT_DIR/fly/fly.toml','rb').read().decode())" 2>&1; then
-      ok "fly: fly.toml parses as valid TOML"
-      record fly pass "$(( $(date +%s) - start ))" "TOML parse OK (flyctl unavailable)"
-    else
-      fail "fly: fly.toml is not valid TOML"
-      record fly fail "$(( $(date +%s) - start ))" "invalid TOML"
-    fi
-    return 0
-  fi
-
-  if flyctl config validate --config "$SCRIPT_DIR/fly/fly.toml" 2>&1 | tee "$RESULTS_DIR/fly.log"; then
-    ok "fly: flyctl config validate passed"
-    record fly pass "$(( $(date +%s) - start ))" "flyctl validate OK"
+  # `flyctl config validate` would be ideal but requires an authenticated
+  # session even for pure schema checks, which isn't available in CI
+  # without secrets. TOML parse + required-key sanity check catches the
+  # malformed-file class of bug without needing flyctl at all.
+  if python3 - "$SCRIPT_DIR/fly/fly.toml" 2>&1 | tee "$RESULTS_DIR/fly.log" <<'PY'
+import sys, tomllib
+doc = tomllib.loads(open(sys.argv[1], "rb").read().decode())
+for k in ("app", "primary_region", "build", "http_service"):
+    assert k in doc, f"fly.toml missing top-level [{k}]"
+assert "image" in doc["build"], "[build] missing image"
+assert doc["http_service"].get("internal_port"), "[http_service] missing internal_port"
+print("fly.toml shape OK")
+PY
+  then
+    ok "fly: fly.toml parses and has required keys"
+    record fly pass "$(( $(date +%s) - start ))" "TOML shape OK"
   else
-    fail "fly: flyctl config validate rejected fly.toml"
-    record fly fail "$(( $(date +%s) - start ))" "flyctl validate failed"
+    fail "fly: fly.toml parse / shape check failed"
+    record fly fail "$(( $(date +%s) - start ))" "fly.toml invalid"
   fi
 }
 

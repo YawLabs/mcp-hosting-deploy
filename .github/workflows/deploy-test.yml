@@ -45,14 +45,6 @@ jobs:
         if: matrix.target == 'helm'
         uses: azure/setup-helm@v4
 
-      - name: Set up kubectl
-        if: matrix.target == 'helm'
-        uses: azure/setup-kubectl@v4
-
-      - name: Install flyctl
-        if: matrix.target == 'fly'
-        uses: superfly/flyctl-actions/setup-flyctl@master
-
       - name: Run target
         run: bash test.sh --target=${{ matrix.target }}
         env:
