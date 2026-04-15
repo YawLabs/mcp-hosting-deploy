@@ -6,9 +6,15 @@ Your team's own private instance of [mcp.hosting](https://mcp.hosting) — the c
 
 > **Who this is for.** Teams and enterprises that need their own instance for data-sovereignty, compliance, or contract reasons. If you can use the hosted service at [mcp.hosting](https://mcp.hosting), it's cheaper and always current — see the [Managed alternative](#managed-alternative) note below.
 
+# Pre-launch: customer-access path TBD
+
+This repository is currently **private** while self-host is in late-stage prep. The `git clone` commands and the Fly.io one-click button below assume an eventual public-flip or a tarball-distribution path from your hosted dashboard — neither is wired up yet. If you're reading this with access today, you're either on the Yaw Labs team or an early-access partner; the public distribution mechanism will be finalised before self-host launches. See [docs/self-host-token.md](./docs/self-host-token.md) for how the GHCR pull token flow works independently.
+
 ## One-click deploy
 
 [![Deploy on Fly.io](https://fly.io/static/images/launch/deploy-on-fly.svg)](https://fly.io/launch?source=https://github.com/YawLabs/mcp-hosting-deploy)
+
+> ⚠️ The Fly.io button references a public source URL. Until this repo is public (or a release-tarball CDN path ships), this button will 404 for anyone outside the YawLabs GitHub org.
 
 ## What you get
 

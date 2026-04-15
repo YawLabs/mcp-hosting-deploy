@@ -5,6 +5,39 @@ document is the source of truth for how the self-host distribution is being
 reshaped after the 2026-04-12 pivot away from the Business-tier
 (Test/Proxy/Hosting) product.
 
+## 2026-04-14 late-evening update — revised decisions
+
+The original plan below assumed self-host would keep a free tier and
+ship across six deploy paths. Several product + security decisions
+superseded parts of the plan the same day:
+
+- **Self-host is paid-only.** Free tier is hosted-only at mcp.hosting;
+  self-host requires an active Team subscription. App refuses to boot
+  without a valid `MCP_HOSTING_LICENSE_KEY`. (See section "Getting-started
+  guide" — the free-tier fallback bullet is obsolete.)
+- **Grace period: 24 hours, not 7 days.** Short enough to surface
+  genuine network-policy issues fast; long enough to tolerate a brief
+  egress outage. (See "Operator runbooks → docs/license.md".)
+- **Relicense MIT → Elastic License 2.0.** The old LICENSE/README
+  mismatch had no legal force; ELv2 permits redistribution + self-host
+  but prohibits hosted-service resale and license-key circumvention.
+- **GHCR image flipped private** (2026-04-14 ~18:15 PT). Pull requires
+  a `self-host` token minted alongside the license key on Team
+  subscription creation. Every deploy path's README now documents the
+  `docker login` / `imagePullSecret` / registry-mirror step.
+- **Deploy paths trimmed to four: Compose, Helm, Fly, Cloud Run.**
+  Render removed (no bundled Redis, weaker private-image UX than the
+  others). CloudFormation + Terraform paths described in the original
+  plan were never shipped; no longer on the near-term roadmap.
+- **Repo currently private.** The `git clone` + Fly.io-launch-button
+  UX in the README assumes a public-flip or tarball-distribution path
+  at launch; neither is wired up yet. README now carries a banner
+  flagging the TBD.
+
+Inline sections below that conflict with the above have been marked
+`[obsolete: see 2026-04-14 update]` rather than rewritten, to preserve
+the design trajectory.
+
 ## Why this repo is being re-shaped
 
 The repo was built for the previous business: self-host the
@@ -24,8 +57,9 @@ subdomains. The consumer launch changed the product shape entirely:
 
 Self-host still matters, but for a different audience: enterprises /
 regulated teams that need their own private instance of the dashboard +
-mcph orchestrator. License key enables the paid tiers (Pro / Team
-features) on their self-hosted instance; no key = free-tier features.
+mcph orchestrator. Self-host is bundled with every Team subscription
+($15/seat/mo). [obsolete: see 2026-04-14 update — "no key = free-tier
+features" is no longer true; self-host is paid-only.]
 
 ## Target audience
 
@@ -42,32 +76,41 @@ Explicitly **not** the target:
 - Customers who want to resell MCP hosting — that was the Business-tier
   use case and isn't the current product.
 
-## Deployment paths we ship
+## Deployment paths we ship [obsolete: see 2026-04-14 update]
 
-Ranked by how many users we expect per path. Each path is "production
-ready" meaning: reproducible from this repo, HTTPS out of the box, a
-documented upgrade procedure, and a backup/restore story.
+The shipping matrix is now: **Docker Compose, Helm, Fly.io, Cloud Run.**
+Render was added then removed; CloudFormation and Terraform were
+planned here but never shipped. The four-path list below is
+paraphrased to match reality; original ranking (six paths) archived
+below it.
 
-1. **Docker Compose (single-host).** The "one VM, `docker compose up`"
-   story. Default path for teams without a k8s cluster. Bundles Caddy +
-   Postgres 18 + Valkey 8 + app. Caddy uses HTTP challenge by default so
-   no DNS provider credentials are needed.
-2. **Helm chart (Kubernetes).** For teams that already run k8s. Defaults
-   to external managed Postgres (RDS / Cloud SQL / AlloyDB); in-cluster
-   Valkey is fine for production. Caddy handles TLS or you bring your own
-   ingress.
-3. **CloudFormation (AWS ECS Fargate or EC2).** The AWS-native option for
-   teams that want IaC and don't have k8s. Both sub-templates exist and
-   are CI-tested.
-4. **Terraform (AWS / GCP / Azure).** Same concept as CloudFormation but
-   multi-cloud. AWS module is production-tested; GCP + Azure are in
-   progress and clearly marked.
-5. **Cloud Run (GCP serverless).** Single-container path for small teams
-   that don't want to run a VM.
-6. **Render / Railway (PaaS).** One-click "Deploy" buttons for the
-   smallest installs.
-7. ~~**Fly.io**~~ — removed in this pass. Lower priority and duplicate
-   capability with Render / Railway.
+**Shipping (2026-04-14 evening):**
+
+1. **Docker Compose (single-host).** `docker compose up` on a VM.
+   Bundles Caddy + Postgres 18 + Valkey 8 + app. HTTP challenge via
+   Caddy. Fully zero-external-services.
+2. **Helm chart (Kubernetes).** External managed Postgres required
+   (RDS / Cloud SQL / AlloyDB); in-cluster Valkey bundled; Caddy for
+   TLS or BYO ingress. `imagePullSecrets` wired to a
+   `ghcr-mcp-hosting` secret.
+3. **Fly.io.** Operator runs `fly postgres create` + `fly redis create`
+   during setup; image is mirrored from GHCR into `registry.fly.io`
+   (Fly can't pull from private third-party registries).
+4. **Cloud Run.** Operator provisions Cloud SQL + Memorystore; image
+   is mirrored from GHCR into Artifact Registry.
+
+**Original six-path plan (archived):**
+
+1. Docker Compose — shipped.
+2. Helm chart — shipped.
+3. CloudFormation (AWS ECS Fargate or EC2) — not shipped, dropped.
+4. Terraform (AWS / GCP / Azure) — not shipped, dropped.
+5. Cloud Run — shipped.
+6. Render / Railway — Render shipped 2026-04-14 morning, removed
+   2026-04-14 evening (no bundled Redis, private-image UX gap); Railway
+   never shipped.
+7. ~~Fly.io~~ — the original plan removed Fly; the late-evening
+   revision added it back (in place of Render).
 
 ## What changes in the redesign
 
@@ -93,9 +136,10 @@ documented upgrade procedure, and a backup/restore story.
 - Reframe "what you get": "this is your team's private instance of the
   mcp.hosting dashboard; members install `@yawlabs/mcph` pointing at
   `MCPH_URL=https://your-domain.example`."
-- License key section: explain that without a key the instance runs as
-  free-tier (3 servers per account, 7-day log retention). With a key,
-  the plan on the key determines enabled features.
+- License key section: explain that the key is required on first boot
+  and the app refuses to serve requests without a valid one; 24-hour
+  offline grace period. [obsolete: see 2026-04-14 update — the
+  original "without a key, free-tier" bullet is superseded.]
 - Drop the "MCP gateway" framing.
 
 ### Helm values
