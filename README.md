@@ -163,6 +163,7 @@ Fly and Cloud Run each have their own README with prerequisites and first-boot d
 - [docs/license.md](./docs/license.md) — license key lifecycle and grace periods.
 - [docs/troubleshooting.md](./docs/troubleshooting.md) — common operator issues.
 - [docs/observability.md](./docs/observability.md) — `/metrics`, Prometheus scrape config, starter Grafana dashboard, recommended alerts.
+- [docs/migration.md](./docs/migration.md) — export your hosted mcp.hosting account and import it onto this instance.
 - [docs/mcph-client.md](./docs/mcph-client.md) — how team members point their mcph CLI at this instance.
 
 ## MCP protocol compatibility
