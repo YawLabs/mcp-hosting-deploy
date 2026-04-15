@@ -30,3 +30,6 @@ docker-compose.override.yml
 
 # test.sh local + CI artifacts — uploaded as GHA artifacts, never committed
 test-results/
+
+# AI-agent local state (Claude Code + similar tools)
+.claude/

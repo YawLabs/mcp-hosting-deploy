@@ -47,14 +47,10 @@ jobs:
         uses: azure/setup-helm@v4
 
       # GHCR login for the docker-compose E2E which pulls the private
-      # ghcr.io/yawlabs/mcp-hosting image. GITHUB_TOKEN here only works
-      # because the YawLabs org has granted mcp-hosting-deploy read
-      # access on the mcp-hosting package — one-time org-admin click
-      # documented in mcp-hosting/docs/ops/ghcr-service-pat-setup.md.
-      # If this step fails with "unauthorized", that grant hasn't
-      # landed yet or was revoked; check
-      # https://github.com/orgs/YawLabs/packages/container/mcp-hosting/settings
-      # → Manage Actions access.
+      # ghcr.io/yawlabs/mcp-hosting image. The GITHUB_TOKEN here works
+      # only if the package has granted this repo read access. If this
+      # step fails with "unauthorized", visit the package settings on
+      # GitHub and add the repo under Manage Actions access.
       - name: Log in to GHCR
         if: matrix.target == 'docker-compose'
         uses: docker/login-action@v3

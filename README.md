@@ -2,19 +2,13 @@
 
 [![Validate Templates](https://github.com/YawLabs/mcp-hosting-deploy/actions/workflows/validate.yml/badge.svg)](https://github.com/YawLabs/mcp-hosting-deploy/actions/workflows/validate.yml)
 
-Your team's own private instance of [mcp.hosting](https://mcp.hosting) — the cloud orchestrator for MCP servers behind the `mcph` CLI. One deployment, license-key-gated features, same dashboard as the hosted service.
+Your team's own private instance of [mcp.hosting](https://mcp.hosting) — the cloud orchestrator for MCP servers behind the `mcph` CLI.
 
 > **Who this is for.** Teams and enterprises that need their own instance for data-sovereignty, compliance, or contract reasons. If you can use the hosted service at [mcp.hosting](https://mcp.hosting), it's cheaper and always current — see the [Managed alternative](#managed-alternative) note below.
-
-# Pre-launch: customer-access path TBD
-
-This repository is currently **private** while self-host is in late-stage prep. The `git clone` commands and the Fly.io one-click button below assume an eventual public-flip or a tarball-distribution path from your hosted dashboard — neither is wired up yet. If you're reading this with access today, you're either on the Yaw Labs team or an early-access partner; the public distribution mechanism will be finalised before self-host launches. See [docs/self-host-token.md](./docs/self-host-token.md) for how the GHCR pull token flow works independently.
 
 ## One-click deploy
 
 [![Deploy on Fly.io](https://fly.io/static/images/launch/deploy-on-fly.svg)](https://fly.io/launch?source=https://github.com/YawLabs/mcp-hosting-deploy)
-
-> ⚠️ The Fly.io button references a public source URL. Until this repo is public (or a release-tarball CDN path ships), this button will 404 for anyone outside the YawLabs GitHub org.
 
 ## What you get
 
@@ -81,7 +75,7 @@ Your team members then install mcph pointing at your instance:
       "args": ["-y", "@yawlabs/mcph"],
       "env": {
         "MCPH_TOKEN": "mcp_pat_...",
-        "MCPH_URL": "https://your-domain.example"
+        "MCPH_URL": "https://mcp.example.com"
       }
     }
   }
@@ -125,14 +119,7 @@ docker compose up -d
 
 The app runs database migrations automatically on boot. No manual step.
 
-If an upgrade goes wrong, roll back to the previous image tag:
-
-```bash
-export MCP_HOSTING_IMAGE_TAG=previous-sha
-docker compose up -d mcp-hosting-app
-```
-
-See [docs/upgrade.md](./docs/upgrade.md) for the full procedure and rollback tips.
+See [docs/upgrade.md](./docs/upgrade.md) for the full procedure, including how to pin a previous image tag for rollback.
 
 ## Backups
 
@@ -164,9 +151,9 @@ Restore: see [docs/backup-restore.md](./docs/backup-restore.md).
 | [Fly.io](./fly/) | Managed PaaS | `flyctl launch` with managed Postgres + Upstash Redis |
 | [Cloud Run](./cloudrun/) | GCP serverless | Single-container; bring your own Cloud SQL + Memorystore |
 
-Each path has its own README with exact prerequisites and a first-boot checklist.
+Fly and Cloud Run each have their own README with prerequisites and first-boot details. The Docker Compose and Helm paths are covered in [docs/getting-started.md](./docs/getting-started.md).
 
-**Deploying elsewhere?** The image at `ghcr.io/yawlabs/mcp-hosting:latest` runs on any container platform that gives it Postgres 14+, Redis/Valkey, and a domain. See [docs/getting-started.md](./docs/getting-started.md) for the minimum env var set.
+**Deploying elsewhere?** The image at `ghcr.io/yawlabs/mcp-hosting:latest` is private — you need the GHCR pull token from your hosted dashboard at **Settings → Self-host** to authenticate. Once authenticated, it runs on any container platform that gives it Postgres 14+, Redis/Valkey, and a domain. See [docs/getting-started.md](./docs/getting-started.md) for the minimum env var set.
 
 ## Operator documentation
 
@@ -187,7 +174,7 @@ Uses **Streamable HTTP** per the [MCP spec 2025-11-25](https://modelcontextproto
 
 ## Testing + validation
 
-Every deployment template is CI-validated (Checkov security scan, cost estimates via Infracost where applicable, and end-to-end deploy tests against real infrastructure for the paths in green above). See [test-results/](./test-results/) for the latest run.
+Every deployment template is CI-validated: `helm lint` + `helm template | kubeconform` on the chart, `docker compose config` on the Compose files, `yamllint` on the Cloud Run service manifest, `fly config validate` on fly.toml, and an end-to-end `docker compose up` smoke against the real image for the Compose path. See [`.github/workflows/`](./.github/workflows/) for the pipelines.
 
 ## Security
 

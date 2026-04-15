@@ -15,25 +15,3 @@ updates:
       interval: weekly
     commit-message:
       prefix: "deps"
-
-  # Keep Terraform providers up to date
-  - package-ecosystem: terraform
-    directory: /terraform/aws
-    schedule:
-      interval: monthly
-    commit-message:
-      prefix: "deps"
-
-  - package-ecosystem: terraform
-    directory: /terraform/gcp
-    schedule:
-      interval: monthly
-    commit-message:
-      prefix: "deps"
-
-  - package-ecosystem: terraform
-    directory: /terraform/azure
-    schedule:
-      interval: monthly
-    commit-message:
-      prefix: "deps"
