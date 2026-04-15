@@ -28,10 +28,19 @@ spec:
               value: "true"
             - name: NODE_ENV
               value: production
+            # Cloud SQL and Memorystore both enforce TLS on their default
+            # endpoints — don't override to `false` unless you're using
+            # a private-IP instance without it.
+            - name: DATABASE_SSL
+              value: "require"
+            - name: REDIS_TLS
+              value: "true"
             - name: BASE_URL
               value: "" # Set via gcloud: --set-env-vars BASE_URL=https://mcp.example.com
             - name: DOMAIN
               value: "" # Set via gcloud
+            - name: BASE_DOMAIN
+              value: "" # Set via gcloud; usually same as DOMAIN (e.g. mcp.example.com)
           resources:
             limits:
               cpu: "1"

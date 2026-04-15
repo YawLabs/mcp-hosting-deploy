@@ -87,13 +87,20 @@ postgres:
 # =============================================================================
 # External database (recommended for production)
 # =============================================================================
+# IMPORTANT: the app's startup migrations run `CREATE EXTENSION IF NOT
+# EXISTS vector` for semantic-rerank / pgvector features. Enable pgvector
+# on your managed Postgres BEFORE deploying — otherwise the first pod
+# crash-loops with "extension vector is not available". AWS RDS, Cloud
+# SQL, Supabase, Azure Database, Crunchy Bridge all support it; check
+# the provider docs. For RDS, pgvector is available on recent 15/16/17/18
+# minor versions via the rds_pgvector parameter.
 externalDatabase:
   host: ""       # e.g. my-db.abc123.us-west-2.rds.amazonaws.com
   port: 5432
   database: mcphosting
   username: mcphosting
   password: ""
-  sslMode: require
+  sslMode: require   # set to "disable" for internal cluster Postgres without TLS
 
 # =============================================================================
 # Redis / Valkey (in-cluster)

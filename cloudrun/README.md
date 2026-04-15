@@ -68,8 +68,11 @@ gcloud run deploy mcp-hosting \
   --set-env-vars "NODE_ENV=production" \
   --set-env-vars "BASE_URL=https://mcp.example.com" \
   --set-env-vars "DOMAIN=mcp.example.com" \
+  --set-env-vars "BASE_DOMAIN=mcp.example.com" \
   --set-env-vars "REDIS_HOST=YOUR_REDIS_HOST" \
   --set-env-vars "REDIS_PORT=6379" \
+  --set-env-vars "REDIS_TLS=true" \
+  --set-env-vars "DATABASE_SSL=require" \
   --set-secrets "REDIS_AUTH_TOKEN=mcp-hosting-redis-auth:latest" \
   --set-secrets "GITHUB_CLIENT_ID=mcp-hosting-gh-client-id:latest" \
   --set-secrets "GITHUB_CLIENT_SECRET=mcp-hosting-gh-client-secret:latest" \

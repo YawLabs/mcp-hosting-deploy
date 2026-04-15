@@ -79,6 +79,28 @@ Rule of thumb:
 
 Every migration we ship aims for the "safe rollback" shape. If a release includes a breaking migration, the release notes call it out explicitly.
 
+## License revalidation during an upgrade
+
+The license cache lives in memory. When the app container restarts during
+an upgrade, the new process re-validates against `mcp.hosting/api/license/validate`
+during boot. Three cases:
+
+- **mcp.hosting reachable, license valid** — normal path. Cache is
+  rebuilt in well under a second and paid features stay on.
+- **mcp.hosting reachable, license rejected** — the new process
+  `exit(1)`s with `license_rejected`. Your orchestrator (Compose or
+  Kubernetes) keeps the previous image serving. Fix the subscription
+  or unbind the installation in hosted Settings, then re-roll.
+- **mcp.hosting unreachable** — the new process boots in *degraded*
+  mode: `/health` returns 200 so the orchestrator doesn't restart-loop,
+  but API routes return 503 until validation succeeds. The background
+  revalidation retries every hour, and a previously-cached-successful
+  validation from *before* the upgrade doesn't carry over (different
+  process, fresh memory). **Plan your upgrade window so mcp.hosting is
+  reachable** — if your egress firewall is changing at the same time
+  as the upgrade, your instance will serve 503 until egress returns,
+  capped at the 24-hour grace window.
+
 ## Scheduled upgrade windows
 
 Upgrades are backward-compatible within minor versions. You can upgrade any time with effectively zero downtime on Kubernetes (rolling deployment) or a ~10-second window on Docker Compose (container restart).

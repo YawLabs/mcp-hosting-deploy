@@ -23,6 +23,23 @@ Without an active Team subscription there is no path to self-host — free tier 
 - 2 GB RAM / 2 vCPU / 20 GB disk is the minimum. For a team of 25 active users, double that.
 - Ports 80 and 443 open to the internet (Caddy binds them for TLS).
 
+> **Bringing your own Postgres?** The bundled Compose uses
+> `pgvector/pgvector:pg18`, which is PostgreSQL 18 with the `vector`
+> extension pre-installed. If you're pointing at external managed
+> Postgres (RDS, Cloud SQL, Supabase, Azure Database, etc.), **enable
+> pgvector before first boot**:
+>
+> ```sql
+> CREATE EXTENSION IF NOT EXISTS vector;
+> ```
+>
+> The startup migrations assume it's available. Without it, the app
+> crash-loops on the very first migration. AWS RDS enables it from the
+> Parameter Group or via `CREATE EXTENSION`; Cloud SQL exposes it as a
+> flag; managed Postgres providers generally list pgvector among their
+> supported extensions — check your provider's docs if you don't see
+> it available.
+
 ## 2. Domain + DNS
 
 Point a single A record at your server's public IP:
@@ -71,6 +88,15 @@ Edit `.env` and fill in the required variables:
 | `MCP_HOSTING_LICENSE_KEY` | Yes | `mcph_sh_<hex>` from mcp.hosting → Settings → Self-host. App refuses to boot without it. |
 
 ## 5. Boot
+
+Before the first boot, run the preflight check — catches typos,
+forgotten placeholders, and mismatched password-vs-DATABASE_URL combos:
+
+```bash
+bash ../scripts/validate-env.sh
+```
+
+If that reports `ok`, bring the stack up:
 
 ```bash
 docker compose up -d
