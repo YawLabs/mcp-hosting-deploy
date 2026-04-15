@@ -162,6 +162,7 @@ Fly and Cloud Run each have their own README with prerequisites and first-boot d
 - [docs/backup-restore.md](./docs/backup-restore.md) — scripts/backup.sh and the restore flow.
 - [docs/license.md](./docs/license.md) — license key lifecycle and grace periods.
 - [docs/troubleshooting.md](./docs/troubleshooting.md) — common operator issues.
+- [docs/observability.md](./docs/observability.md) — `/metrics`, Prometheus scrape config, starter Grafana dashboard, recommended alerts.
 - [docs/mcph-client.md](./docs/mcph-client.md) — how team members point their mcph CLI at this instance.
 
 ## MCP protocol compatibility
