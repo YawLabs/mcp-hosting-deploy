@@ -1,4 +1,0 @@
-{{/*
-PVC is managed by the StatefulSet volumeClaimTemplate in redis-statefulset.yaml.
-This file is kept as a placeholder for documentation purposes.
-*/}}

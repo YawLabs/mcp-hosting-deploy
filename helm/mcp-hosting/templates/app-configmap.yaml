@@ -6,6 +6,7 @@ metadata:
   labels:
     {{- include "mcp-hosting.labels" . | nindent 4 }}
 data:
+  SELF_HOSTED: "true"
   NODE_ENV: {{ .Values.app.nodeEnv | quote }}
   PORT: {{ .Values.app.port | quote }}
   BASE_DOMAIN: {{ .Values.domain | quote }}
@@ -13,7 +14,4 @@ data:
   REDIS_PORT: {{ include "mcp-hosting.redisPort" . | quote }}
   EMAIL_FROM: {{ .Values.email.from | quote }}
   AWS_REGION: {{ .Values.email.ses.region | quote }}
-  ECR_REGISTRY: {{ .Values.app.ecrRegistry | quote }}
-  ECR_REPO: {{ .Values.app.ecrRepo | quote }}
-  BUILD_NAMESPACE: {{ .Values.app.buildNamespace | quote }}
   GITHUB_CALLBACK_URL: "https://{{ .Values.domain }}/auth/github/callback"

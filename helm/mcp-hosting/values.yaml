@@ -69,24 +69,6 @@ app:
   # -- Cookie signing secret (32+ characters, required)
   cookieSecret: ""
 
-  # -- LemonSqueezy billing (optional)
-  lemonSqueezyApiKey: ""
-  lemonSqueezyWebhookSecret: ""
-  lemonSqueezyStoreId: ""
-
-  # -- GitHub App integration (optional)
-  githubAppId: ""
-  githubAppClientId: ""
-  githubAppWebhookSecret: ""
-  # Base64-encoded private key
-  githubAppPrivateKey: ""
-
-  # -- Build service
-  ecrRegistry: ""
-  ecrRepo: mcp-hosting-servers
-  buildNamespace: mcp-hosting
-  buildSecret: ""
-
 # =============================================================================
 # PostgreSQL (in-cluster -- for development/testing ONLY)
 # =============================================================================

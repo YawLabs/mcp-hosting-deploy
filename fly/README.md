@@ -1,6 +1,6 @@
 # Deploy mcp.hosting on Fly.io
 
-Single-domain deploy on Fly's managed platform. No wildcard DNS needed — consumer self-host uses one domain.
+Single-domain deploy on Fly's managed platform. Point one domain at the Fly app — no wildcard DNS required.
 
 ## Prerequisites
 

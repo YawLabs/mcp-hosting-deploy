@@ -34,7 +34,7 @@ data:
       }
     }
 
-    # Root domain — dashboard + API (single domain; consumer self-host has no wildcard need)
+    # Root domain — dashboard + API (single domain; no wildcard needed)
     {{ .Values.domain }} {
       import mcp_proxy
     }

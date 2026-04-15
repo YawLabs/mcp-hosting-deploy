@@ -47,13 +47,13 @@ jobs:
         uses: azure/setup-helm@v4
 
       # GHCR login for the docker-compose E2E which pulls the private
-      # ghcr.io/yawlabs/mcp-hosting image. Uses MCPH_GHCR_PULL_TOKEN —
-      # the read:packages service PAT wired into hosted mcp.hosting
-      # (see mcp-hosting/docs/ops/ghcr-service-pat-setup.md). We first
-      # tried GITHUB_TOKEN + cross-repo Actions-access grant; login
-      # succeeded but pull denied, so PAT is the working path. Set the
-      # secret at:
-      #   https://github.com/YawLabs/mcp-hosting-deploy/settings/secrets/actions
+      # ghcr.io/yawlabs/mcp-hosting image. Uses a shared service-account
+      # PAT with read:packages scope, set as the MCPH_GHCR_PULL_TOKEN
+      # repo secret. The PAT is the same one surfaced to paying Team
+      # customers; a leak just allows free image pulls — license
+      # enforcement happens inside the app via MCP_HOSTING_LICENSE_KEY.
+      # GITHUB_TOKEN + cross-repo package Actions-access was tried and
+      # doesn't work here (login succeeds, pull denies).
       - name: Log in to GHCR
         if: matrix.target == 'docker-compose'
         uses: docker/login-action@v3
