@@ -2,6 +2,8 @@
 
 Step-by-step walkthrough for bringing up a production self-hosted instance of mcp.hosting on a single Linux server via Docker Compose. For Kubernetes, jump to the [Helm chart](../helm/mcp-hosting/).
 
+> **Looking for a faster path?** If you're deploying to **Fly.io** or **Google Cloud Run**, the [`fly/bootstrap.sh`](../fly/bootstrap.sh) and [`cloudrun/bootstrap.sh`](../cloudrun/bootstrap.sh) scripts collapse all the provisioning (app + Postgres + Redis + image mirror + secrets + deploy) into one interactive command. Use those if you want one-liner setup; follow this guide for the Compose-on-a-VM path.
+
 ## 0. Prerequisite — Team subscription
 
 Self-host is a **Team**-plan capability. Before anything else:
