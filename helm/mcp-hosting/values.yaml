@@ -158,6 +158,13 @@ monitoring:
   # Enable Prometheus ServiceMonitor (requires prometheus-operator CRDs)
   serviceMonitor:
     enabled: false
+    # Optional extra labels — set these to whatever your prometheus
+    # operator's serviceMonitorSelector matches on (e.g. release: prom).
+    labels: {}
+    # How often Prometheus scrapes /metrics. Match your environment's
+    # global scrape interval if you have one.
+    interval: 30s
+    scrapeTimeout: 10s
 
 # =============================================================================
 # Autoscaling (HPA for the app deployment)

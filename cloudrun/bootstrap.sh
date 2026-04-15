@@ -109,9 +109,8 @@ prompt_value  AWS_REGION                "AWS region for SES" "us-east-1"
 prompt_value  AWS_ACCESS_KEY_ID         "AWS access key ID (for SES)"
 prompt_secret AWS_SECRET_ACCESS_KEY     "AWS secret access key"
 prompt_value  EMAIL_FROM                "Verified SES sender address"
-prompt_value  DOMAIN                    "Public domain (for BASE_URL / BASE_DOMAIN)"
+prompt_value  DOMAIN                    "Public domain (passed to the app as BASE_DOMAIN)"
 
-BASE_URL="https://$DOMAIN"
 COOKIE_SECRET="$(openssl rand -hex 32)"
 SQL_PASSWORD="$(openssl rand -hex 16)"
 
@@ -267,7 +266,7 @@ gcloud run deploy "$SERVICE_NAME" \
   --add-cloudsql-instances="$SQL_CONNECTION_NAME" \
   --vpc-connector="$VPC_CONNECTOR" \
   --vpc-egress=private-ranges-only \
-  --set-env-vars="SELF_HOSTED=true,NODE_ENV=production,BASE_URL=${BASE_URL},DOMAIN=${DOMAIN},BASE_DOMAIN=${DOMAIN},REDIS_HOST=${REDIS_HOST},REDIS_PORT=${REDIS_PORT},REDIS_AUTH_TOKEN=${REDIS_AUTH_TOKEN},AWS_REGION=${AWS_REGION},EMAIL_FROM=${EMAIL_FROM}" \
+  --set-env-vars="SELF_HOSTED=true,NODE_ENV=production,BASE_DOMAIN=${DOMAIN},REDIS_HOST=${REDIS_HOST},REDIS_PORT=${REDIS_PORT},REDIS_AUTH_TOKEN=${REDIS_AUTH_TOKEN},AWS_REGION=${AWS_REGION},EMAIL_FROM=${EMAIL_FROM}" \
   --set-secrets="DATABASE_URL=${SERVICE_NAME}-db-url:latest,COOKIE_SECRET=${SERVICE_NAME}-cookie-secret:latest,MCP_HOSTING_LICENSE_KEY=${SERVICE_NAME}-license-key:latest,GITHUB_CLIENT_ID=${SERVICE_NAME}-gh-client-id:latest,GITHUB_CLIENT_SECRET=${SERVICE_NAME}-gh-client-secret:latest,AWS_ACCESS_KEY_ID=${SERVICE_NAME}-aws-key:latest,AWS_SECRET_ACCESS_KEY=${SERVICE_NAME}-aws-secret:latest"
 
 # -----------------------------------------------------------------------------

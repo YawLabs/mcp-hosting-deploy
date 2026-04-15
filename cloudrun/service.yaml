@@ -35,12 +35,8 @@ spec:
               value: "require"
             - name: REDIS_TLS
               value: "true"
-            - name: BASE_URL
-              value: "" # Set via gcloud: --set-env-vars BASE_URL=https://mcp.example.com
-            - name: DOMAIN
-              value: "" # Set via gcloud
             - name: BASE_DOMAIN
-              value: "" # Set via gcloud; usually same as DOMAIN (e.g. mcp.example.com)
+              value: "" # Set via gcloud: --set-env-vars BASE_DOMAIN=mcp.example.com
           resources:
             limits:
               cpu: "1"

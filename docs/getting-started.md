@@ -78,8 +78,7 @@ Edit `.env` and fill in the required variables:
 
 | Variable | Required | Notes |
 |---|---|---|
-| `DOMAIN` | Yes | `mcp.example.com` — no protocol prefix |
-| `BASE_URL` | Yes | `https://mcp.example.com` — full URL with scheme |
+| `DOMAIN` | Yes | `mcp.example.com` — no protocol prefix. Passed to the app as `BASE_DOMAIN`. |
 | `POSTGRES_PASSWORD` + `DATABASE_URL` | Yes | Match both — the URL embeds the password |
 | `COOKIE_SECRET` | Yes | `openssl rand -hex 32` |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | Yes | GitHub OAuth app — dashboard sign-in |

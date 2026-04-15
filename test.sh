@@ -101,7 +101,6 @@ test_docker_compose() {
   cat > "$envfile" <<ENV
 DOMAIN=localhost
 BASE_DOMAIN=localhost
-BASE_URL=http://localhost:3000
 NODE_ENV=development
 POSTGRES_USER=mcphosting
 POSTGRES_PASSWORD=${pw}

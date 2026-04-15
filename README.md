@@ -46,7 +46,7 @@ echo $MCPH_GHCR_TOKEN | docker login ghcr.io -u self-host --password-stdin
 
 # 3. Copy the env template + fill in required values
 cp .env.example .env
-# Edit .env — set DOMAIN, BASE_URL, POSTGRES_PASSWORD, COOKIE_SECRET,
+# Edit .env — set DOMAIN, POSTGRES_PASSWORD, COOKIE_SECRET,
 # MCP_HOSTING_LICENSE_KEY, GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET,
 # EMAIL_FROM, and the three AWS_* variables for SES.
 

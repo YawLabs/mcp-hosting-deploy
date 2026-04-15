@@ -66,8 +66,6 @@ gcloud run deploy mcp-hosting \
   --timeout 3600 \
   --set-env-vars "SELF_HOSTED=true" \
   --set-env-vars "NODE_ENV=production" \
-  --set-env-vars "BASE_URL=https://mcp.example.com" \
-  --set-env-vars "DOMAIN=mcp.example.com" \
   --set-env-vars "BASE_DOMAIN=mcp.example.com" \
   --set-env-vars "REDIS_HOST=YOUR_REDIS_HOST" \
   --set-env-vars "REDIS_PORT=6379" \

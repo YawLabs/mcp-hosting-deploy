@@ -87,7 +87,6 @@ prompt_value  AWS_ACCESS_KEY_ID         "AWS access key ID (for SES)"
 prompt_secret AWS_SECRET_ACCESS_KEY     "AWS secret access key"
 prompt_value  EMAIL_FROM                "Verified SES sender address" "noreply@$APP_NAME.fly.dev"
 prompt_value  DOMAIN                    "Public domain" "$APP_NAME.fly.dev"
-prompt_value  BASE_URL                  "Public base URL" "https://$DOMAIN"
 
 COOKIE_SECRET="$(openssl rand -hex 32)"
 
@@ -185,8 +184,6 @@ fly secrets set \
   AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" \
   AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
   EMAIL_FROM="$EMAIL_FROM" \
-  DOMAIN="$DOMAIN" \
-  BASE_URL="$BASE_URL" \
   BASE_DOMAIN="$DOMAIN" \
   MCP_HOSTING_LICENSE_KEY="$MCP_HOSTING_LICENSE_KEY"
 

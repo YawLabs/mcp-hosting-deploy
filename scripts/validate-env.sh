@@ -51,7 +51,6 @@ require_nonplaceholder() {
 }
 
 require DOMAIN "set your public domain (e.g. mcp.example.com, no scheme)"
-require BASE_URL "full public URL including https:// (e.g. https://mcp.example.com)"
 require MCP_HOSTING_LICENSE_KEY "your mcph_sh_* key from hosted mcp.hosting Settings"
 require_nonplaceholder POSTGRES_PASSWORD "run 'openssl rand -hex 24' to generate" "changeme|^$"
 require DATABASE_URL "shape: postgresql://\$POSTGRES_USER:\$POSTGRES_PASSWORD@postgres:5432/\$POSTGRES_DB"
