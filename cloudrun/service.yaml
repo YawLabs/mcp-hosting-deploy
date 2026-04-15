@@ -24,6 +24,8 @@ spec:
           ports:
             - containerPort: 3000
           env:
+            - name: SELF_HOSTED
+              value: "true"
             - name: NODE_ENV
               value: production
             - name: BASE_URL

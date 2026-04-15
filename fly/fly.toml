@@ -15,6 +15,9 @@ primary_region = "iad"
 [build]
   image = "ghcr.io/yawlabs/mcp-hosting:latest"
 
+[env]
+  SELF_HOSTED = "true"
+
 [http_service]
   internal_port = 3000
   force_https = true

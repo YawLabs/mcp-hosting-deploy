@@ -8,6 +8,14 @@ services:
     expose:
       - "3000"
     environment:
+      # Declares this instance as a self-host so the app refuses to boot
+      # without a valid MCP_HOSTING_LICENSE_KEY (prevents accidental
+      # bypass where an unset key would leave the app thinking it's
+      # running as hosted mcp.hosting). Default on — operators should
+      # not override this in production. Scoped overridable only so CI
+      # smoke tests can exercise image-boot + stack connectivity
+      # without having to mock the license API.
+      - SELF_HOSTED=${SELF_HOSTED:-true}
       - DATABASE_URL=${DATABASE_URL}
       # The bundled postgres:18 container has no TLS; connections stay on
       # the compose network. Operators pointing at external managed

@@ -108,6 +108,10 @@ POSTGRES_PASSWORD=${pw}
 POSTGRES_DB=mcphosting
 DATABASE_URL=postgresql://mcphosting:${pw}@postgres:5432/mcphosting
 DATABASE_SSL=false
+# CI-only: skip the self-host license refuse-to-boot path; we're just
+# smoke-testing image + stack connectivity, not the license flow.
+# Production compose defaults SELF_HOSTED=true.
+SELF_HOSTED=false
 REDIS_HOST=redis
 REDIS_PORT=6379
 REDIS_TLS=false
