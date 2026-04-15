@@ -59,7 +59,10 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: self-host
+          # Username is ignored by ghcr.io for classic PATs as long as the
+          # PAT itself is valid — but some docker login handshake paths
+          # reject an unknown literal. Use the PAT owner's login.
+          username: jeffyaw
           password: ${{ secrets.MCPH_GHCR_PULL_TOKEN }}
 
       - name: Run target
