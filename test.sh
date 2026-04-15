@@ -109,6 +109,7 @@ POSTGRES_USER=mcphosting
 POSTGRES_PASSWORD=${pw}
 POSTGRES_DB=mcphosting
 DATABASE_URL=postgresql://mcphosting:${pw}@postgres:5432/mcphosting
+DATABASE_SSL=false
 REDIS_HOST=redis
 REDIS_PORT=6379
 COOKIE_SECRET=${cookie}

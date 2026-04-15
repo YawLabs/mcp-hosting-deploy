@@ -60,6 +60,7 @@ Top reasons:
 |---|---|---|
 | `DATABASE_URL: missing required env var` | `.env` not loaded / missing var | Verify `docker compose config` shows the env var |
 | `getaddrinfo EAI_AGAIN postgres` | Postgres container isn't up yet | Wait 30s; if persistent, check `docker compose ps postgres` |
+| `Client network socket disconnected before secure TLS` / `FATAL: Database migration failed` | App defaulted `DATABASE_SSL=require` but bundled `postgres:18` has no TLS | Already hard-coded to `DATABASE_SSL=false` in `docker-compose.yml`. If you swap to external managed Postgres, drop the override. |
 | `ECONNREFUSED 127.0.0.1:6379` | `REDIS_HOST` resolved to localhost inside the container | Set `REDIS_HOST=redis` (the Docker Compose service name, not localhost) |
 | `Missing required env var: REDIS_HOST` | You set `REDIS_URL` instead | The app reads `REDIS_HOST` + `REDIS_PORT` + optional `REDIS_AUTH_TOKEN` separately. Split the URL or set the three pieces directly. |
 | `Missing required env var: GITHUB_CLIENT_ID` | GitHub OAuth not configured | Register an OAuth app at github.com/settings/developers, set `GITHUB_CLIENT_ID` + `GITHUB_CLIENT_SECRET` in `.env`. |

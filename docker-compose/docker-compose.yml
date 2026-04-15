@@ -9,6 +9,10 @@ services:
       - "3000"
     environment:
       - DATABASE_URL=${DATABASE_URL}
+      # The bundled postgres:18 container has no TLS; connections stay on
+      # the compose network. Operators pointing at external managed
+      # Postgres (RDS, Cloud SQL, etc.) should unset this.
+      - DATABASE_SSL=false
       - REDIS_HOST=${REDIS_HOST:-redis}
       - REDIS_PORT=${REDIS_PORT:-6379}
       - REDIS_AUTH_TOKEN=${REDIS_AUTH_TOKEN:-}
