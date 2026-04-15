@@ -8,7 +8,7 @@ Your team's own private instance of [mcp.hosting](https://mcp.hosting) — the c
 
 ## One-click deploy
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/yawlabs/mcp-hosting-deploy) [![Deploy on Fly.io](https://fly.io/static/images/launch/deploy-on-fly.svg)](https://fly.io/launch?source=https://github.com/YawLabs/mcp-hosting-deploy)
+[![Deploy on Fly.io](https://fly.io/static/images/launch/deploy-on-fly.svg)](https://fly.io/launch?source=https://github.com/YawLabs/mcp-hosting-deploy)
 
 ## What you get
 
@@ -155,7 +155,6 @@ Restore: see [docs/backup-restore.md](./docs/backup-restore.md).
 |---|---|---|
 | [Docker Compose](./docker-compose/) | Single VM | Bundles Postgres 18 + Valkey 8 + Caddy. Fastest happy path. |
 | [Helm](./helm/) | Existing Kubernetes cluster | Defaults to external managed Postgres (RDS, Cloud SQL) |
-| [Render](./render/) | Managed PaaS | Blueprint deploys the app + managed Postgres |
 | [Fly.io](./fly/) | Managed PaaS | `flyctl launch` with managed Postgres + Upstash Redis |
 | [Cloud Run](./cloudrun/) | GCP serverless | Single-container; bring your own Cloud SQL + Memorystore |
 

@@ -37,17 +37,6 @@ kubectl create secret docker-registry ghcr-mcp-hosting \
 
 `helm/mcp-hosting/values.yaml` ships with `imagePullSecrets: [{ name: ghcr-mcp-hosting }]` — no additional config needed as long as the secret name matches.
 
-### Render
-
-Add the token under **Account Settings → Registry Credentials** on Render:
-
-- Name: `ghcr-mcp-hosting`
-- Registry: `ghcr.io`
-- Username: `self-host`
-- Password: your `$MCPH_GHCR_TOKEN`
-
-The shipped `render/render.yaml` blueprint references this credential by name.
-
 ### Fly.io
 
 Fly can't pull from third-party private registries directly, so mirror the image into Fly's registry:

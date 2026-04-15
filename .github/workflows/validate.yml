@@ -32,7 +32,6 @@ jobs:
           yamllint -d '{extends: relaxed, rules: {line-length: {max: 200}}}' \
             docker-compose/docker-compose.yml \
             docker-compose/docker-compose.prod.yml \
-            render/render.yaml \
             cloudrun/service.yaml
 
   docker-compose-validate:

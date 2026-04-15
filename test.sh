@@ -15,8 +15,6 @@ set -euo pipefail
 #   helm             Schema — helm template renders, every emitted manifest
 #                    passes kubectl --dry-run=client. No live cluster.
 #   fly              Schema — flyctl config validate against fly/fly.toml.
-#   render           Schema — yamllint on render/render.yaml + basic key
-#                    sanity (services[].type, envVars shape).
 #   cloudrun         Schema — yamllint on cloudrun/service.yaml + Knative
 #                    key sanity.
 #
@@ -270,42 +268,6 @@ PY
 }
 
 # -----------------------------------------------------------------------------
-# render — yamllint + key sanity
-# -----------------------------------------------------------------------------
-test_render() {
-  should_run render || return 0
-
-  local start
-  start=$(date +%s)
-
-  if ! yamllint -d '{extends: relaxed, rules: {line-length: {max: 200}}}' \
-        "$SCRIPT_DIR/render/render.yaml" 2>&1 | tee "$RESULTS_DIR/render.log"; then
-    fail "render: yamllint rejected render.yaml"
-    record render fail "$(( $(date +%s) - start ))" "yamllint failed"
-    return 0
-  fi
-
-  # Blueprint shape: expect at least one service + one database
-  if python3 - "$SCRIPT_DIR/render/render.yaml" <<'PY'
-import sys, yaml
-doc = yaml.safe_load(open(sys.argv[1]))
-assert isinstance(doc.get("services"), list) and doc["services"], "no services[]"
-assert isinstance(doc.get("databases"), list) and doc["databases"], "no databases[]"
-svc = doc["services"][0]
-for k in ("type", "name", "runtime", "envVars"):
-    assert k in svc, f"service missing {k}"
-print("render.yaml shape OK")
-PY
-  then
-    ok "render: blueprint shape + yamllint OK"
-    record render pass "$(( $(date +%s) - start ))" "blueprint shape + yamllint OK"
-  else
-    fail "render: blueprint shape invalid"
-    record render fail "$(( $(date +%s) - start ))" "blueprint shape invalid"
-  fi
-}
-
-# -----------------------------------------------------------------------------
 # cloudrun — yamllint + Knative key sanity
 # -----------------------------------------------------------------------------
 test_cloudrun() {
@@ -347,7 +309,6 @@ info "Running target: ${TARGET_FILTER:-all}"
 test_docker_compose
 test_helm
 test_fly
-test_render
 test_cloudrun
 
 # Stitch results.json

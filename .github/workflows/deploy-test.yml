@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       target:
-        description: "Single target to run (docker-compose, helm, fly, render, cloudrun) or empty for all"
+        description: "Single target to run (docker-compose, helm, fly, cloudrun) or empty for all"
         default: ""
       image:
         description: "App image to test against"
@@ -29,7 +29,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [docker-compose, helm, fly, render, cloudrun]
+        target: [docker-compose, helm, fly, cloudrun]
     steps:
       - uses: actions/checkout@v4
 
@@ -39,7 +39,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install yamllint
-        if: matrix.target == 'render' || matrix.target == 'cloudrun'
+        if: matrix.target == 'cloudrun'
         run: pip install yamllint
 
       - name: Set up Helm
