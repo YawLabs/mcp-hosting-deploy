@@ -6,10 +6,6 @@ Your team's own private instance of [mcp.hosting](https://mcp.hosting) — the c
 
 > **Who this is for.** Teams and enterprises that need their own instance for data-sovereignty, compliance, or contract reasons. If you can use the hosted service at [mcp.hosting](https://mcp.hosting), it's cheaper and always current — see the [Managed alternative](#managed-alternative) note below.
 
-## One-click deploy
-
-[![Deploy on Fly.io](https://fly.io/static/images/launch/deploy-on-fly.svg)](https://fly.io/launch?source=https://github.com/YawLabs/mcp-hosting-deploy)
-
 ## What you get
 
 A self-hosted instance of mcp.hosting that your team can point their MCP clients at. Each team member installs [`@yawlabs/mcph`](https://www.npmjs.com/package/@yawlabs/mcph) in their Claude Desktop / Cursor / VS Code and sets `MCPH_URL=https://your-domain.example` — the rest of the flow is identical to the hosted product.
@@ -47,22 +43,56 @@ echo $MCPH_GHCR_TOKEN | docker login ghcr.io -u self-host --password-stdin
 # 3. Copy the env template + fill in required values
 cp .env.example .env
 # Edit .env — set DOMAIN, POSTGRES_PASSWORD, COOKIE_SECRET,
-# MCP_HOSTING_LICENSE_KEY, GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET,
-# EMAIL_FROM, and the three AWS_* variables for SES.
+# MCP_HOSTING_LICENSE_KEY, REDIS_AUTH_TOKEN, GITHUB_CLIENT_ID,
+# GITHUB_CLIENT_SECRET, EMAIL_FROM, and the three AWS_* variables for SES.
 
 # 4. Point your domain's A record at this server's public IP.
 
-# 5. Bring everything up.
-docker compose up -d
+# 5. Preflight check — refuses to proceed if anything required is missing.
+bash ../scripts/validate-env.sh
 
-# 6. Open https://your-domain.example — Caddy will provision a Let's Encrypt
+# 6. Bring everything up. The prod overlay adds resource limits + log
+#    rotation; the base file alone has neither, and unbounded JSON log
+#    files will fill the disk over time. Use the overlay for any
+#    deploy that real users will hit.
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+# 7. Open https://your-domain.example — Caddy will provision a Let's Encrypt
 #    certificate automatically (usually under 60 seconds).
 ```
 
-For a production deployment (resource limits + log rotation):
+## Quick start — Helm
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# Authenticate Helm to the GHCR OCI registry (one-time)
+echo $GITHUB_TOKEN | helm registry login ghcr.io -u <your-gh-user> --password-stdin
+
+# Install at a pinned chart version (recommended for production)
+helm install mcp-hosting oci://ghcr.io/yawlabs/charts/mcp-hosting \
+  --version 0.1.0 \
+  --namespace mcp-hosting --create-namespace \
+  --set domain=mcp.example.com \
+  --set licenseKey=mcph_sh_... \
+  --set app.cookieSecret="$(openssl rand -hex 32)" \
+  --set app.githubClientId=... --set app.githubClientSecret=... \
+  --set externalDatabase.host=... --set externalDatabase.password=... \
+  --set email.from=noreply@mcp.example.com \
+  --set email.ses.accessKeyId=... --set email.ses.secretAccessKey=...
+```
+
+Two chart channels are published:
+
+- **Versioned** (`oci://ghcr.io/yawlabs/charts/mcp-hosting --version vX.Y.Z`) — tagged from `Chart.yaml`, immutable, what you should run in production. Tags ship via [`release.yml`](./.github/workflows/release.yml) when `vX.Y.Z` is pushed.
+- **Preview** (`oci://ghcr.io/yawlabs/charts/mcp-hosting --version 0.1.0+<sha>`) — every push to `master` that touches `helm/`. Useful for canary'ing chart changes before they cut a tag. Don't pin production to one of these.
+
+Create the GHCR image-pull secret before installing — the chart references it but doesn't create it (the token shouldn't live in your values file):
+
+```bash
+kubectl create secret docker-registry ghcr-mcp-hosting \
+  --namespace mcp-hosting \
+  --docker-server=ghcr.io \
+  --docker-username=self-host \
+  --docker-password="$MCPH_GHCR_TOKEN"
 ```
 
 Your team members then install mcph pointing at your instance:
@@ -166,6 +196,7 @@ Fly and Cloud Run each have their own README with prerequisites and first-boot d
 - [docs/observability.md](./docs/observability.md) — `/metrics`, Prometheus scrape config, starter Grafana dashboard, recommended alerts.
 - [docs/migration.md](./docs/migration.md) — export your hosted mcp.hosting account and import it onto this instance.
 - [docs/mcph-client.md](./docs/mcph-client.md) — how team members point their mcph CLI at this instance.
+- [docs/oidc-setup.md](./docs/oidc-setup.md) — optional OIDC SSO (Google, Okta, Azure AD, Authentik, Keycloak).
 
 ## MCP protocol compatibility
 
@@ -177,7 +208,17 @@ Uses **Streamable HTTP** per the [MCP spec 2025-11-25](https://modelcontextproto
 
 ## Testing + validation
 
-Every deployment template is CI-validated: `helm lint` + `helm template | kubeconform` on the chart, `docker compose config` on the Compose files, `yamllint` on the Cloud Run service manifest, `fly config validate` on fly.toml, and an end-to-end `docker compose up` smoke against the real image for the Compose path. See [`.github/workflows/`](./.github/workflows/) for the pipelines.
+Every deployment template is CI-validated:
+
+- **Helm:** `helm lint --strict` + `helm template | kubeconform` (offline schema validation against the bundled OpenAPI specs).
+- **Docker Compose:** `docker compose config` on the base file and the prod overlay, plus `yamllint`.
+- **Cloud Run:** `yamllint` on `cloudrun/service.yaml` plus a Knative-shape sanity check.
+- **Fly.io:** TOML parse + required-key check on `fly/fly.toml`. (Not `flyctl config validate` — that requires an authenticated session even for pure schema work, which CI doesn't have.)
+- **Shell scripts:** `shellcheck` over `scripts/`, `test.sh`, and the `bootstrap.sh` files.
+
+See [`.github/workflows/validate.yml`](./.github/workflows/validate.yml) and [`.github/workflows/deploy-test.yml`](./.github/workflows/deploy-test.yml) for the exact pipelines.
+
+The end-to-end `docker compose up` smoke against the live (private) image runs **out-of-band** on a dedicated host (`mcp-build`) every hour, logging to `/var/log/mcp-deploy-test.log`. Running it in GitHub Actions would require placing a long-lived GHCR pull token in repo secrets, which we don't want to expose in PR runs.
 
 ## Security
 

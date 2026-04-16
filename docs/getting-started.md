@@ -80,11 +80,13 @@ Edit `.env` and fill in the required variables:
 |---|---|---|
 | `DOMAIN` | Yes | `mcp.example.com` — no protocol prefix. Passed to the app as `BASE_DOMAIN`. |
 | `POSTGRES_PASSWORD` + `DATABASE_URL` | Yes | Match both — the URL embeds the password |
+| `REDIS_AUTH_TOKEN` | Yes | `openssl rand -hex 24`. The bundled valkey container starts with `--requirepass` and `docker compose up` refuses to boot without it. |
 | `COOKIE_SECRET` | Yes | `openssl rand -hex 32` |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | Yes | GitHub OAuth app — dashboard sign-in |
 | `EMAIL_FROM` | Yes | Verified SES sender |
 | `AWS_REGION` / `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Yes | For SES |
 | `MCP_HOSTING_LICENSE_KEY` | Yes | `mcph_sh_<hex>` from mcp.hosting → Settings → Self-host. App refuses to boot without it. |
+| `OIDC_ISSUER` / `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` | No | Optional SSO via Google / Okta / Azure AD / Authentik / Keycloak. All three set together or omit all three. See [docs/oidc-setup.md](./oidc-setup.md). |
 
 ## 5. Boot
 
@@ -95,10 +97,11 @@ forgotten placeholders, and mismatched password-vs-DATABASE_URL combos:
 bash ../scripts/validate-env.sh
 ```
 
-If that reports `ok`, bring the stack up:
+If that reports `ok`, bring the stack up with the prod overlay (resource
+limits + log rotation — without it, container logs grow unbounded on disk):
 
 ```bash
-docker compose up -d
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
 
 Then wait ~60 seconds for Caddy to provision the Let's Encrypt certificate. Check status:
@@ -110,11 +113,7 @@ docker compose logs -f caddy
 
 All four containers should be healthy: `mcp-hosting-app`, `postgres`, `redis`, `caddy`.
 
-For a production deploy (resource limits + log rotation) add the prod overlay:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
-```
+> **Skipping the overlay?** Only safe for short-lived dev / smoke runs. The base `docker-compose.yml` has no logging driver config, so Docker's default driver writes uncapped JSON logs that will eventually fill the disk on a long-running deploy.
 
 ## 6. First sign-in
 
