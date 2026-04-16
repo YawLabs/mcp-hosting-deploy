@@ -2,6 +2,12 @@ name: Release
 on:
   push:
     tags: ['v*']
+  # workflow_dispatch lets us re-fire the release manually against an
+  # existing tag (e.g. `gh workflow run release.yml --ref v0.2.0`).
+  # Needed when a tag push gets blocked by branch/tag protection
+  # rulesets and the auto-trigger reports startup_failure with no
+  # logs — the workflow is fine, the trigger event just got eaten.
+  workflow_dispatch:
 
 # Tag-driven release workflow. Bump helm/mcp-hosting/Chart.yaml's
 # `version`, commit, then `git tag vX.Y.Z && git push --tags`. This
