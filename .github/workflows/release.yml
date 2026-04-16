@@ -113,14 +113,26 @@ jobs:
             echo '```'
           } > release-notes.md
 
+      # Use the preinstalled gh CLI rather than a marketplace action.
+      # The repo's actions allow-list (settings → actions →
+      # "Selected") only permits actions/*, verified creators, and a
+      # named pattern list — softprops/action-gh-release isn't on it
+      # and its absence causes silent startup_failure (workflow
+      # registers, never runs, no logs). gh release create has no
+      # such gating since it's just a CLI on the runner image.
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          # tag_name pinned explicitly so workflow_dispatch (which runs
-          # with GITHUB_REF=refs/heads/master) still attaches the
-          # release to the correct vX.Y.Z tag.
-          tag_name: ${{ steps.ref.outputs.ref }}
-          body_path: release-notes.md
-          name: ${{ steps.ref.outputs.ref }}
-          draft: false
-          prerelease: false
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.ref.outputs.ref }}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" \
+              --title "$TAG" \
+              --notes-file release-notes.md \
+              --draft=false \
+              --prerelease=false
+          else
+            gh release create "$TAG" \
+              --title "$TAG" \
+              --notes-file release-notes.md
+          fi
