@@ -27,8 +27,10 @@ if [[ ! -f "$ENV_FILE" ]]; then
   exit 1
 fi
 
+set -a
 # shellcheck source=/dev/null
-set -a; . "$ENV_FILE"; set +a
+. "$ENV_FILE"
+set +a
 
 ERRORS=()
 
