@@ -121,7 +121,24 @@ Open `https://mcp.example.com` in a browser. You should land on the mcp.hosting 
 
 ## 7. Point mcph at your instance
 
-Every team member who wants to use the orchestrator installs `@yawlabs/mcph` in their MCP client config, with `MCPH_URL` set to your instance:
+Every team member who wants to use the orchestrator points `@yawlabs/mcph` at your instance. Two values to wire up:
+
+- **Token** — created in the dashboard under **Settings → API Tokens** (`mcp_pat_...`).
+- **URL** — your self-host root (`https://mcp.example.com`).
+
+The fastest path is the `install` command (mcph v0.11.0+) — it edits the right config file per OS, merges the launch entry without clobbering anything else, and handles the Windows `cmd /c` wrapper for you:
+
+```bash
+# Pick one: claude-code | claude-desktop | cursor | vscode
+npx -y @yawlabs/mcph install claude-code --token mcp_pat_...
+
+# Then add the self-host URL to ~/.mcph.json so mcph talks to your instance
+#   { "version": 1, "token": "mcp_pat_...", "apiBase": "https://mcp.example.com" }
+```
+
+`apiBase` in `~/.mcph.json` is read by every mcph invocation on the machine, so you only set it once per user. Verify with `npx -y @yawlabs/mcph doctor`.
+
+Or hand-edit the client config — same effect, with `MCPH_URL` carried in `env`:
 
 ```json
 {
@@ -138,7 +155,7 @@ Every team member who wants to use the orchestrator installs `@yawlabs/mcph` in 
 }
 ```
 
-Tokens are created in the dashboard under **Settings → API Tokens**. See [docs/mcph-client.md](./mcph-client.md) for per-client config paths (Claude Desktop, Cursor, VS Code).
+See [docs/mcph-client.md](./mcph-client.md) for per-client config paths (Claude Desktop, Cursor, VS Code).
 
 ## 8. License validation behaviour
 

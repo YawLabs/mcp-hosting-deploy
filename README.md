@@ -8,7 +8,7 @@ Your team's own private instance of [mcp.hosting](https://mcp.hosting) — the c
 
 ## What you get
 
-A self-hosted instance of mcp.hosting that your team can point their MCP clients at. Each team member installs [`@yawlabs/mcph`](https://www.npmjs.com/package/@yawlabs/mcph) in their Claude Desktop / Cursor / VS Code and sets `MCPH_URL=https://your-domain.example` — the rest of the flow is identical to the hosted product.
+A self-hosted instance of mcp.hosting that your team can point their MCP clients at. Each team member runs `npx -y @yawlabs/mcph install <client> --token mcp_pat_...` (mcph v0.11.0+) and adds `"apiBase": "https://your-domain.example"` to `~/.mcph.json` — that's the whole onboarding step. The rest of the flow is identical to the hosted product. (Older clients can still hand-edit JSON with `MCPH_URL` in `env`; both paths work.)
 
 Self-host is a **Team plan** capability and requires an active Team license key (`mcph_sh_<hex>`). Feature set:
 
@@ -95,7 +95,17 @@ kubectl create secret docker-registry ghcr-mcp-hosting \
   --docker-password="$MCPH_GHCR_TOKEN"
 ```
 
-Your team members then install mcph pointing at your instance:
+Your team members then point mcph at your instance. The fastest path is the `install` command — it edits the right config file for them and seeds `~/.mcph.json`:
+
+```bash
+# Pick one: claude-code | claude-desktop | cursor | vscode
+npx -y @yawlabs/mcph install claude-code --token mcp_pat_...
+
+# Then add the self-host URL to ~/.mcph.json
+#   { "version": 1, "token": "mcp_pat_...", "apiBase": "https://mcp.example.com" }
+```
+
+mcph picks the right config file per OS, merges the launch entry without clobbering any other servers the user has, and handles the Windows `cmd /c` wrapper automatically. Or hand-edit the client config:
 
 ```json
 {
@@ -112,7 +122,7 @@ Your team members then install mcph pointing at your instance:
 }
 ```
 
-On Windows, wrap the command in `cmd /c` — see the [main docs](https://mcp.hosting/docs) for the per-client config shapes.
+See [docs/mcph-client.md](./docs/mcph-client.md) for per-client paths and tuning.
 
 ## DNS
 
