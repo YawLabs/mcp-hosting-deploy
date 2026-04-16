@@ -46,6 +46,8 @@ If the license API becomes unreachable **after** a successful validation (e.g. e
 
 24 hours is deliberately short — long enough to tolerate a DNS blip or a brief egress-firewall change window, short enough to surface actual network policy issues quickly. If you need longer offline tolerance, email [support@mcp.hosting](mailto:support@mcp.hosting).
 
+**Monitoring grace:** the Prometheus gauge `mcp_license_grace_remaining_seconds` shows seconds remaining before the instance starts serving 503. Alert on `< 43200` (12 hours) to catch drift before it becomes user-facing. The dashboard also renders a yellow/red banner above every authenticated page when grace is running low — see [observability.md](./observability.md) for the recommended alert rule.
+
 ### Rebinding to new hardware
 
 On the original instance, click **Unbind installation** in **Settings → Self-host**. Then activate on the new instance. The unbind is idempotent and takes effect within 15 minutes, or instantly if you click **Revalidate now** on both sides.

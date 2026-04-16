@@ -67,8 +67,9 @@ Top reasons:
 | `Missing required env var: REDIS_HOST` | You set `REDIS_URL` instead | The app reads `REDIS_HOST` + `REDIS_PORT` + optional `REDIS_AUTH_TOKEN` separately. Split the URL or set the three pieces directly. |
 | `Missing required env var: GITHUB_CLIENT_ID` | GitHub OAuth not configured | Register an OAuth app at github.com/settings/developers, set `GITHUB_CLIENT_ID` + `GITHUB_CLIENT_SECRET` in `.env`. |
 | `Database migration failed` | Schema state mismatch | See [docs/upgrade.md](./upgrade.md) — restore the pre-migration snapshot if needed |
-| `License validation failed: …` (app exits) | Invalid key, key bound to a different instance, or `mcp.hosting` unreachable at first boot | See [docs/license.md](./license.md#troubleshooting) |
+| `License validation failed: …` (app exits) | Invalid key, key bound to a different instance, or `mcp.hosting` unreachable at first boot. **First boot is fatal** — the app exits(1) if it can't validate. Background revalidation + grace period only kick in after at least one successful validation. | See [docs/license.md](./license.md#troubleshooting) |
 | `unauthorized` / `denied` on `docker compose pull` | GHCR pull token missing, expired, or subscription revoked | See [docs/self-host-token.md](./self-host-token.md#troubleshooting) |
+| `OIDC_ISSUER is set but OIDC_CLIENT_ID / OIDC_CLIENT_SECRET are empty` | All three OIDC env vars must be set together or none at all | Set all three or unset `OIDC_ISSUER` to disable SSO |
 
 ## Dashboard loads but I can't sign in
 
