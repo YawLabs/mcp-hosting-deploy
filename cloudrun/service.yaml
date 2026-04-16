@@ -37,6 +37,27 @@ spec:
               value: "true"
             - name: BASE_DOMAIN
               value: "" # Set via gcloud: --set-env-vars BASE_DOMAIN=mcp.example.com
+            # The following are typically set via --set-secrets in the
+            # gcloud deploy command (see README.md) rather than as
+            # plain env vars. Listed here as placeholders so operators
+            # using the declarative yaml path don't miss them.
+            # - name: DATABASE_URL           # (secret) postgresql://...
+            # - name: COOKIE_SECRET          # (secret) openssl rand -hex 32
+            # - name: MCP_HOSTING_LICENSE_KEY # (secret) mcph_sh_...
+            # - name: GITHUB_CLIENT_ID       # (secret) OAuth app client ID
+            # - name: GITHUB_CLIENT_SECRET   # (secret) OAuth app client secret
+            # - name: AWS_ACCESS_KEY_ID      # (secret) IAM key for SES
+            # - name: AWS_SECRET_ACCESS_KEY  # (secret) IAM secret for SES
+            - name: AWS_REGION
+              value: "us-east-1"
+            - name: EMAIL_FROM
+              value: "" # Verified SES sender address
+            - name: REDIS_HOST
+              value: "" # Memorystore IP
+            - name: REDIS_PORT
+              value: "6379"
+            - name: REDIS_AUTH_TOKEN
+              value: "" # Memorystore AUTH string
           resources:
             limits:
               cpu: "1"
