@@ -111,6 +111,15 @@ prompt_secret AWS_SECRET_ACCESS_KEY     "AWS secret access key"
 prompt_value  EMAIL_FROM                "Verified SES sender address"
 prompt_value  DOMAIN                    "Public domain (passed to the app as BASE_DOMAIN)"
 
+# Catch typos / empty paste BEFORE we do 10 minutes of GCP provisioning
+# that would only fail at the final `gcloud run deploy` step.
+[[ -n "$MCPH_GHCR_TOKEN"         ]] || die "GHCR pull token is empty"
+[[ -n "$MCP_HOSTING_LICENSE_KEY" ]] || die "License key is empty"
+[[ "$MCP_HOSTING_LICENSE_KEY" == mcph_sh_* ]] \
+  || die "License key must start with 'mcph_sh_'. Copy it again from mcp.hosting → Settings → Self-host."
+[[ -n "$GITHUB_CLIENT_SECRET"    ]] || die "GitHub OAuth client secret is empty"
+[[ -n "$AWS_SECRET_ACCESS_KEY"   ]] || die "AWS secret access key is empty"
+
 COOKIE_SECRET="$(openssl rand -hex 32)"
 SQL_PASSWORD="$(openssl rand -hex 16)"
 
@@ -171,6 +180,11 @@ DATABASE_URL="postgresql://postgres:${SQL_PASSWORD}@/mcphosting?host=/cloudsql/$
 # -----------------------------------------------------------------------------
 # 3. Memorystore Redis
 # -----------------------------------------------------------------------------
+# We provision a basic-tier Memorystore instance: no AUTH, no in-transit
+# TLS. Cheap and fine for a self-host deployment. The bootstrap sets
+# REDIS_TLS=false on the Cloud Run service to match. If you upgrade to a
+# standard / enterprise tier with auth + TLS, set REDIS_AUTH_TOKEN and
+# REDIS_TLS=true on the Cloud Run service via gcloud run services update.
 log "3/7 Ensuring Memorystore Redis: $REDIS_INSTANCE"
 if gcloud redis instances describe "$REDIS_INSTANCE" \
     --region="$REGION" --project="$GCP_PROJECT" >/dev/null 2>&1; then
@@ -266,7 +280,7 @@ gcloud run deploy "$SERVICE_NAME" \
   --add-cloudsql-instances="$SQL_CONNECTION_NAME" \
   --vpc-connector="$VPC_CONNECTOR" \
   --vpc-egress=private-ranges-only \
-  --set-env-vars="SELF_HOSTED=true,NODE_ENV=production,BASE_DOMAIN=${DOMAIN},REDIS_HOST=${REDIS_HOST},REDIS_PORT=${REDIS_PORT},REDIS_AUTH_TOKEN=${REDIS_AUTH_TOKEN},AWS_REGION=${AWS_REGION},EMAIL_FROM=${EMAIL_FROM}" \
+  --set-env-vars="SELF_HOSTED=true,NODE_ENV=production,BASE_DOMAIN=${DOMAIN},DATABASE_SSL=disable,REDIS_HOST=${REDIS_HOST},REDIS_PORT=${REDIS_PORT},REDIS_AUTH_TOKEN=${REDIS_AUTH_TOKEN},REDIS_TLS=false,AWS_REGION=${AWS_REGION},EMAIL_FROM=${EMAIL_FROM}" \
   --set-secrets="DATABASE_URL=${SERVICE_NAME}-db-url:latest,COOKIE_SECRET=${SERVICE_NAME}-cookie-secret:latest,MCP_HOSTING_LICENSE_KEY=${SERVICE_NAME}-license-key:latest,GITHUB_CLIENT_ID=${SERVICE_NAME}-gh-client-id:latest,GITHUB_CLIENT_SECRET=${SERVICE_NAME}-gh-client-secret:latest,AWS_ACCESS_KEY_ID=${SERVICE_NAME}-aws-key:latest,AWS_SECRET_ACCESS_KEY=${SERVICE_NAME}-aws-secret:latest"
 
 # -----------------------------------------------------------------------------
@@ -280,9 +294,10 @@ log "7/7 Deployed."
 log "Cloud Run URL: $SERVICE_URL"
 log "Health: curl -sf ${SERVICE_URL}/health"
 log ""
-log "Custom domain: run"
+log "Custom domain (optional): run"
 log "  gcloud run domain-mappings create \\"
-log "    --service=$SERVICE_NAME --domain=$DOMAIN --region=$REGION"
+log "    --service=$SERVICE_NAME --domain=$DOMAIN --region=$REGION \\"
+log "    --project=$GCP_PROJECT"
 log ""
 log "Upgrades: re-run this script. Steps 1-3 are idempotent; steps 4-6"
 log "pull the latest GHCR tag, push a fresh Artifact Registry tag, and"

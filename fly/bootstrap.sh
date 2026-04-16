@@ -88,6 +88,15 @@ prompt_secret AWS_SECRET_ACCESS_KEY     "AWS secret access key"
 prompt_value  EMAIL_FROM                "Verified SES sender address" "noreply@$APP_NAME.fly.dev"
 prompt_value  DOMAIN                    "Public domain" "$APP_NAME.fly.dev"
 
+# Catch typos / empty paste BEFORE we do 5 minutes of Postgres + Redis
+# provisioning that would only fail at the final `fly deploy` step.
+[[ -n "$MCPH_GHCR_TOKEN"         ]] || die "GHCR pull token is empty"
+[[ -n "$MCP_HOSTING_LICENSE_KEY" ]] || die "License key is empty"
+[[ "$MCP_HOSTING_LICENSE_KEY" == mcph_sh_* ]] \
+  || die "License key must start with 'mcph_sh_'. Copy it again from mcp.hosting → Settings → Self-host."
+[[ -n "$GITHUB_CLIENT_SECRET"    ]] || die "GitHub OAuth client secret is empty"
+[[ -n "$AWS_SECRET_ACCESS_KEY"   ]] || die "AWS secret access key is empty"
+
 COOKIE_SECRET="$(openssl rand -hex 32)"
 
 # -----------------------------------------------------------------------------

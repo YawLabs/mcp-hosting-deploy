@@ -17,6 +17,7 @@ primary_region = "iad"
 
 [env]
   SELF_HOSTED = "true"
+  NODE_ENV = "production"
 
 [http_service]
   internal_port = 3000
