@@ -63,6 +63,13 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB:-mcphosting}
     volumes:
+      # Mount the parent of PGDATA (which the upstream image sets to
+      # /var/lib/postgresql/data) rather than PGDATA itself. This is
+      # non-standard — the typical pattern is to mount the volume at
+      # /var/lib/postgresql/data — but it is what existing deployments
+      # are using, and changing it would orphan their on-disk data.
+      # Keep as-is; data still persists because it lives inside the
+      # mounted parent dir.
       - postgres_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mcphosting}"]
@@ -77,10 +84,20 @@ services:
   redis:
     image: valkey/valkey:8
     restart: unless-stopped
+    # `--requirepass` is mandatory: anything else on the compose network
+    # would otherwise have unauthenticated read/write access to the cache
+    # (sessions, rate-limit state, token metadata). The ${VAR:?...}
+    # interpolation makes `docker compose up` fail loudly if the operator
+    # never set REDIS_AUTH_TOKEN in .env, instead of silently booting an
+    # open Redis. Generate with: openssl rand -hex 24.
+    command:
+      - "valkey-server"
+      - "--requirepass"
+      - "${REDIS_AUTH_TOKEN:?REDIS_AUTH_TOKEN must be set in .env (run: openssl rand -hex 24)}"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "valkey-cli", "ping"]
+      test: ["CMD", "valkey-cli", "-a", "${REDIS_AUTH_TOKEN}", "--no-auth-warning", "ping"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -103,6 +120,18 @@ services:
       - caddy_config:/config
     depends_on:
       - mcp-hosting-app
+    # Caddy is the user-facing component — if it hangs or crashes
+    # silently the whole instance looks dead from outside. The probe
+    # uses busybox's nc (-z = scan only, no I/O) to verify port 80 is
+    # accepting connections; we give it 60s of start-up grace because
+    # first-boot Let's Encrypt provisioning can take 30–45s before the
+    # listener is ready.
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "80"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
 
 networks:
   default:

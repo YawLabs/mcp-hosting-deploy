@@ -30,23 +30,47 @@ trap notify_failure ERR
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 COMPOSE_DIR="$(dirname "$SCRIPT_DIR")/docker-compose"
 BACKUP_DIR="${BACKUP_DIR:-${COMPOSE_DIR}/backups}"
+# RETENTION_DAYS prunes only the LOCAL copies in BACKUP_DIR — this is a
+# disk-fullness guard, not a long-term retention policy. For production
+# 30/90/365-day retention, configure an S3 lifecycle policy on the upload
+# bucket (see docs/production-checklist.md). The 7-day local default
+# leaves enough history to roll back without filling small VM disks.
 RETENTION_DAYS="${RETENTION_DAYS:-7}"
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP_FILE="mcp-hosting-${TIMESTAMP}.sql.gz"
 S3_DEST="${1:-}"
 
-# Load .env for database credentials
-if [ -f "${COMPOSE_DIR}/.env" ]; then
-  set -a
-  # shellcheck source=/dev/null
-  source "${COMPOSE_DIR}/.env"
-  set +a
+# Load .env for database credentials. Hard fail if it's missing — the
+# script must back up the SAME database the running stack uses, and
+# silently falling through to "mcphosting/mcphosting" defaults would
+# happily produce empty/wrong backups when an operator has customised
+# POSTGRES_USER or POSTGRES_DB.
+if [ ! -f "${COMPOSE_DIR}/.env" ]; then
+  echo "[backup] FAIL: ${COMPOSE_DIR}/.env not found." >&2
+  echo "[backup]       cp ${COMPOSE_DIR}/.env.example ${COMPOSE_DIR}/.env first," >&2
+  echo "[backup]       or set POSTGRES_USER + POSTGRES_DB in this script's env." >&2
+  exit 1
 fi
+set -a
+# shellcheck source=/dev/null
+source "${COMPOSE_DIR}/.env"
+set +a
 
 DB_USER="${POSTGRES_USER:-mcphosting}"
 DB_NAME="${POSTGRES_DB:-mcphosting}"
 
 mkdir -p "${BACKUP_DIR}"
+
+# Verify the postgres service is actually running before pg_dump'ing
+# into a void. `docker compose exec` against a stopped container exits
+# non-zero which trap'd `set -e` would catch — but the surfaced error is
+# easier to diagnose if we name the failure mode explicitly.
+if ! docker compose -f "${COMPOSE_DIR}/docker-compose.yml" ps --status=running --services 2>/dev/null \
+    | grep -qx postgres; then
+  echo "[backup] FAIL: postgres service is not running. Bring the stack up first:" >&2
+  echo "[backup]       docker compose -f ${COMPOSE_DIR}/docker-compose.yml up -d postgres" >&2
+  exit 1
+fi
 
 echo "[backup] Starting PostgreSQL backup..."
 docker compose -f "${COMPOSE_DIR}/docker-compose.yml" exec -T postgres \

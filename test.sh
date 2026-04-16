@@ -114,6 +114,9 @@ SELF_HOSTED=false
 REDIS_HOST=redis
 REDIS_PORT=6379
 REDIS_TLS=false
+# Bundled valkey now runs with --requirepass; compose refuses to start
+# without REDIS_AUTH_TOKEN. Smoke test uses a fresh per-run value.
+REDIS_AUTH_TOKEN=$(openssl rand -hex 24)
 COOKIE_SECRET=${cookie}
 EMAIL_FROM=noreply@localhost
 AWS_REGION=us-east-1

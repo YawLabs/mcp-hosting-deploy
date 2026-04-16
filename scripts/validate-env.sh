@@ -61,6 +61,7 @@ require EMAIL_FROM "verified SES sender identity (e.g. noreply@mcp.example.com)"
 require AWS_REGION "SES region (e.g. us-east-1)"
 require AWS_ACCESS_KEY_ID "IAM key with ses:SendEmail + ses:SendRawEmail"
 require AWS_SECRET_ACCESS_KEY "partner of AWS_ACCESS_KEY_ID"
+require_nonplaceholder REDIS_AUTH_TOKEN "run 'openssl rand -hex 24' to generate — bundled valkey runs with --requirepass and refuses unauthenticated connections" "changeme|^$"
 
 # Cross-check: DATABASE_URL must embed POSTGRES_PASSWORD — this catches
 # the "set the password in one place, forgot the other" class of bug.
