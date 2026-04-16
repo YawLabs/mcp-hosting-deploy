@@ -48,7 +48,7 @@ jobs:
 
       - name: Set up Helm
         if: matrix.target == 'helm'
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
 
       - name: Run target
         run: bash test.sh --target=${{ matrix.target }}
