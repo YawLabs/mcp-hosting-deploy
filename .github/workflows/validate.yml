@@ -41,7 +41,57 @@ jobs:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v4
+      # `docker compose config` interpolates env vars; populate the
+      # required ones so the validation doesn't error on missing inputs.
+      # These are throwaway values used only to render the compose file.
       - name: Validate docker-compose.yml
+        env:
+          REDIS_AUTH_TOKEN: ci-validate-redis-token
+          DOMAIN: ci.example.com
+          DATABASE_URL: postgresql://x:y@postgres:5432/x
+          POSTGRES_PASSWORD: ci-validate-pw
+          COOKIE_SECRET: ci-validate-cookie
+          MCP_HOSTING_LICENSE_KEY: mcph_sh_ci
+          GITHUB_CLIENT_ID: x
+          GITHUB_CLIENT_SECRET: x
+          EMAIL_FROM: noreply@ci.example.com
+          AWS_REGION: us-east-1
+          AWS_ACCESS_KEY_ID: x
+          AWS_SECRET_ACCESS_KEY: x
         run: docker compose -f docker-compose/docker-compose.yml config --quiet
       - name: Validate docker-compose.prod.yml overlay
+        env:
+          REDIS_AUTH_TOKEN: ci-validate-redis-token
+          DOMAIN: ci.example.com
+          DATABASE_URL: postgresql://x:y@postgres:5432/x
+          POSTGRES_PASSWORD: ci-validate-pw
+          COOKIE_SECRET: ci-validate-cookie
+          MCP_HOSTING_LICENSE_KEY: mcph_sh_ci
+          GITHUB_CLIENT_ID: x
+          GITHUB_CLIENT_SECRET: x
+          EMAIL_FROM: noreply@ci.example.com
+          AWS_REGION: us-east-1
+          AWS_ACCESS_KEY_ID: x
+          AWS_SECRET_ACCESS_KEY: x
         run: docker compose -f docker-compose/docker-compose.yml -f docker-compose/docker-compose.prod.yml config --quiet
+
+  shellcheck:
+    name: Shellcheck operator scripts
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      # These scripts run on operator hardware — bash-isms or quoting
+      # bugs surface as 3am support tickets, not CI failures, unless we
+      # lint them here.
+      - name: Lint shell scripts
+        run: |
+          shellcheck \
+            scripts/backup.sh \
+            scripts/validate-env.sh \
+            test.sh \
+            fly/bootstrap.sh \
+            cloudrun/bootstrap.sh

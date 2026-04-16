@@ -1,0 +1,89 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+
+# Tag-driven release workflow. Bump helm/mcp-hosting/Chart.yaml's
+# `version`, commit, then `git tag vX.Y.Z && git push --tags`. This
+# workflow:
+#
+#   1. Verifies the tag matches Chart.yaml so the published chart and
+#      the GitHub release agree.
+#   2. Packages and pushes the chart at the pinned version to GHCR
+#      OCI (oci://ghcr.io/yawlabs/charts) — operators can then
+#      `helm pull` that exact version forever.
+#   3. Generates release notes from `git log` since the previous tag
+#      and creates a GitHub Release that operators can subscribe to
+#      for upgrade notifications.
+#
+# The publish-helm.yml workflow continues to push commit-pinned
+# preview charts (vX.Y.Z+sha) on every master push for testers; this
+# workflow is the canonical source of named releases.
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      - name: Verify tag matches Chart.yaml version
+        id: version
+        run: |
+          TAG="${GITHUB_REF#refs/tags/v}"
+          CHART_VERSION=$(grep '^version:' helm/mcp-hosting/Chart.yaml | awk '{print $2}')
+          if [[ "$TAG" != "$CHART_VERSION" ]]; then
+            echo "::error::Tag v${TAG} does not match Chart.yaml version ${CHART_VERSION}."
+            echo "::error::Bump helm/mcp-hosting/Chart.yaml first, then re-tag."
+            exit 1
+          fi
+          echo "version=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Releasing v${TAG}"
+
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Package and push pinned chart
+        run: |
+          helm package helm/mcp-hosting \
+            --version "${{ steps.version.outputs.version }}" \
+            --app-version "${{ steps.version.outputs.version }}"
+          helm push "mcp-hosting-${{ steps.version.outputs.version }}.tgz" oci://ghcr.io/yawlabs/charts
+
+      - name: Generate release notes
+        id: notes
+        run: |
+          PREV_TAG=$(git tag --sort=-creatordate | grep -v "^${GITHUB_REF#refs/tags/}$" | head -n1 || true)
+          {
+            if [[ -n "$PREV_TAG" ]]; then
+              echo "## Changes since ${PREV_TAG}"
+              echo
+              git log --pretty=format:'- %s (%h)' "${PREV_TAG}..HEAD"
+            else
+              echo "Initial tagged release."
+            fi
+            echo
+            echo
+            echo "## Install"
+            echo
+            echo '```bash'
+            echo "helm pull oci://ghcr.io/yawlabs/charts/mcp-hosting --version ${{ steps.version.outputs.version }}"
+            echo '```'
+          } > release-notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release-notes.md
+          name: "v${{ steps.version.outputs.version }}"
+          draft: false
+          prerelease: false
