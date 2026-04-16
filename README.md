@@ -23,11 +23,11 @@ Self-host is a **Team plan** capability and requires an active Team license key 
 - Shared servers, admin controls, centralised billing
 - Priority support
 
-Free tier is hosted-only at [mcp.hosting](https://mcp.hosting) — no self-host install. License keys are purchased on [mcp.hosting/pricing](https://mcp.hosting/pricing) via LemonSqueezy. Every Team subscription auto-generates a self-host license key + GHCR pull token in your hosted dashboard at **Settings → Self-host**.
+Free tier is hosted-only at [mcp.hosting](https://mcp.hosting) — no self-host install. License keys are purchased on [mcp.hosting/#pricing](https://mcp.hosting/#pricing) via LemonSqueezy. Every Team subscription auto-generates a self-host license key + GHCR pull token in your hosted dashboard at **Settings → Self-host**.
 
 ## Prerequisites
 
-- An active **Team** subscription at [mcp.hosting/pricing](https://mcp.hosting/pricing). Copy your self-host license key and GHCR pull token from the hosted dashboard at **Settings → Self-host**. You need both to deploy.
+- An active **Team** subscription at [mcp.hosting/#pricing](https://mcp.hosting/#pricing). Copy your self-host license key and GHCR pull token from the hosted dashboard at **Settings → Self-host**. You need both to deploy.
 - Linux server (Ubuntu 22.04+ recommended) or a Kubernetes cluster.
 - A domain name pointed at your server (single A record).
 - Docker Engine 24+ and Docker Compose v2+ *(for the Compose path)*, or `kubectl` + Helm 3+ *(for the Helm path)*.
@@ -96,7 +96,7 @@ That's it — one record. Caddy handles TLS automatically via Let's Encrypt.
 
 ## License key activation
 
-The license key is **required on first boot** — the app will not start without it. Subscribe to the **Team plan** at [mcp.hosting/pricing](https://mcp.hosting/pricing) ($15/seat/mo). Every Team subscription auto-generates a self-host license key (`mcph_sh_<hex>`) and a scoped GHCR pull token, both visible in your hosted dashboard at **Settings → Self-host**.
+The license key is **required on first boot** — the app will not start without it. Subscribe to the **Team plan** at [mcp.hosting/#pricing](https://mcp.hosting/#pricing) ($15/seat/mo). Every Team subscription auto-generates a self-host license key (`mcph_sh_<hex>`) and a scoped GHCR pull token, both visible in your hosted dashboard at **Settings → Self-host**.
 
 1. Copy the license key and set it in `.env`:
    ```

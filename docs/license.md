@@ -1,6 +1,6 @@
 # License keys
 
-Self-hosted instances are gated by `MCP_HOSTING_LICENSE_KEY`. Self-host is a **Team**-plan capability — every Team subscription at [mcp.hosting/pricing](https://mcp.hosting/pricing) auto-issues a self-host license key. Without a valid key, the app refuses to boot.
+Self-hosted instances are gated by `MCP_HOSTING_LICENSE_KEY`. Self-host is a **Team**-plan capability — every Team subscription at [mcp.hosting/#pricing](https://mcp.hosting/#pricing) auto-issues a self-host license key. Without a valid key, the app refuses to boot.
 
 Free tier is hosted-only. There is no free self-host mode.
 
@@ -8,7 +8,7 @@ Free tier is hosted-only. There is no free self-host mode.
 
 ### Purchase
 
-Buy a Team subscription at [mcp.hosting/pricing](https://mcp.hosting/pricing). On checkout, the hosted dashboard at **Settings → Self-host** shows your self-host license key and the GHCR pull token used to fetch the image.
+Buy a Team subscription at [mcp.hosting/#pricing](https://mcp.hosting/#pricing). On checkout, the hosted dashboard at **Settings → Self-host** shows your self-host license key and the GHCR pull token used to fetch the image.
 
 Key format: `mcph_sh_<32-hex-chars>`.
 

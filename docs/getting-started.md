@@ -8,7 +8,7 @@ Step-by-step walkthrough for bringing up a production self-hosted instance of mc
 
 Self-host is a **Team**-plan capability. Before anything else:
 
-1. Buy a Team subscription at [mcp.hosting/pricing](https://mcp.hosting/pricing) ($15/seat/month).
+1. Buy a Team subscription at [mcp.hosting/#pricing](https://mcp.hosting/#pricing) ($15/seat/month).
 2. Open the hosted dashboard at **Settings → Self-host**.
 3. Copy two values that were issued on subscription creation:
    - **License key** — `mcph_sh_<hex>`. Sets `MCP_HOSTING_LICENSE_KEY` inside the running container.

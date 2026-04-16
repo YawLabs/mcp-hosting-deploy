@@ -18,7 +18,7 @@
 domain: mcp.example.com
 
 # -- License key (REQUIRED — self-host requires a Team subscription)
-# Get yours at https://mcp.hosting/pricing → Settings → Self-host.
+# Get yours at https://mcp.hosting/#pricing → Settings → Self-host.
 # Format: mcph_sh_<hex>
 licenseKey: ""
 

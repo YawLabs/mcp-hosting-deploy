@@ -6,7 +6,7 @@ Cloud Run provides a fully managed serverless container platform with automatic 
 
 - [Google Cloud CLI](https://cloud.google.com/sdk/docs/install) (`gcloud`) and [Docker](https://docs.docker.com/engine/install/)
 - A GCP project with billing enabled
-- Active **Team** subscription at [mcp.hosting/pricing](https://mcp.hosting/pricing). Copy your self-host license key and GHCR pull token from the hosted dashboard at **Settings → Self-host**.
+- Active **Team** subscription at [mcp.hosting/#pricing](https://mcp.hosting/#pricing). Copy your self-host license key and GHCR pull token from the hosted dashboard at **Settings → Self-host**.
 
 ## One-command setup
 

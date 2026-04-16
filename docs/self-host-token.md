@@ -1,6 +1,6 @@
 # GHCR pull token for the self-host image
 
-The `ghcr.io/yawlabs/mcp-hosting` image is private. You need a scoped pull token to fetch it. Every Team subscription at [mcp.hosting/pricing](https://mcp.hosting/pricing) issues one alongside the license key.
+The `ghcr.io/yawlabs/mcp-hosting` image is private. You need a scoped pull token to fetch it. Every Team subscription at [mcp.hosting/#pricing](https://mcp.hosting/#pricing) issues one alongside the license key.
 
 ## Where to find the token
 
