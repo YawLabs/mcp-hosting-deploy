@@ -12,7 +12,7 @@ jobs:
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Set up Helm
         uses: azure/setup-helm@v4
       - name: Lint chart
@@ -24,7 +24,7 @@ jobs:
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install yamllint
         run: pip install yamllint
       - name: Lint YAML files
@@ -40,7 +40,7 @@ jobs:
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       # `docker compose config` interpolates env vars; populate the
       # required ones so the validation doesn't error on missing inputs.
       # These are throwaway values used only to render the compose file.
@@ -81,7 +81,7 @@ jobs:
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install shellcheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck
       # These scripts run on operator hardware — bash-isms or quoting
