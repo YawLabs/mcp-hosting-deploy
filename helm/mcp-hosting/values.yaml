@@ -120,6 +120,10 @@ externalRedis:
   host: ""       # e.g. my-cache.abc123.0001.usw2.cache.amazonaws.com
   port: 6379
   password: ""
+  # Set false for managed Redis without TLS (e.g. Memorystore basic tier,
+  # ElastiCache without in-transit encryption). Most managed Redis offerings
+  # default to TLS on — leave true unless you've explicitly disabled it.
+  tls: true
 
 # =============================================================================
 # Caddy (reverse proxy + automatic TLS)
@@ -150,6 +154,21 @@ email:
     region: us-east-1
     accessKeyId: ""
     secretAccessKey: ""
+
+# =============================================================================
+# OIDC SSO (optional — Google, Okta, Azure AD, Authentik, Keycloak, etc.)
+# =============================================================================
+# When `issuer` is set, the sign-in page shows a "Sign in with SSO" button
+# that redirects to your OIDC provider. All three values must be set
+# together — leave `issuer` empty to disable SSO and rely on magic-link
+# email + (optional) GitHub OAuth instead.
+#
+# Provider callback URL pattern:  https://<domain>/auth/oidc/callback
+# Setup walkthrough:              docs/oidc-setup.md
+oidc:
+  issuer: ""        # e.g. https://accounts.google.com  or  https://<tenant>.okta.com
+  clientId: ""      # OIDC application client ID from your provider
+  clientSecret: ""  # OIDC application client secret (kept in a Secret object)
 
 # =============================================================================
 # Monitoring

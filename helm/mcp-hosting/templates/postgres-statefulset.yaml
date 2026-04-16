@@ -28,6 +28,11 @@ spec:
         - name: postgres
           image: {{ .Values.postgres.image }}
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: false
           ports:
             - name: postgres
               containerPort: 5432
@@ -98,5 +103,8 @@ metadata:
     app.kubernetes.io/component: postgres
 type: Opaque
 stringData:
-  password: {{ .Values.postgres.password | quote }}
+  # An empty Postgres password lets every pod in the namespace connect as
+  # the superuser. Reject it at render time rather than hand operators a
+  # silently-broken cluster.
+  password: {{ required "postgres.password is required when postgres.enabled=true. Generate one with: openssl rand -hex 16" .Values.postgres.password | quote }}
 {{- end }}

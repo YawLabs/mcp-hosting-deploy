@@ -35,6 +35,14 @@ spec:
         - name: caddy
           image: {{ .Values.caddy.image }}
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              # Caddy needs NET_BIND_SERVICE to listen on 80/443 as a
+              # non-root user. Drop everything else.
+              drop: ["ALL"]
+              add: ["NET_BIND_SERVICE"]
+            readOnlyRootFilesystem: false
           ports:
             - name: http
               containerPort: 80

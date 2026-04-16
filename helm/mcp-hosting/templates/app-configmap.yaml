@@ -12,6 +12,21 @@ data:
   BASE_DOMAIN: {{ .Values.domain | quote }}
   REDIS_HOST: {{ include "mcp-hosting.redisHost" . | quote }}
   REDIS_PORT: {{ include "mcp-hosting.redisPort" . | quote }}
+  # The app defaults DATABASE_SSL=require and REDIS_TLS=true (correct for
+  # managed services). Override them to "disable"/"false" when we're
+  # bound to in-cluster Postgres/Valkey, which don't terminate TLS.
+  # External-mode users get the value they specified under externalDatabase
+  # / externalRedis.
+  {{- if .Values.postgres.enabled }}
+  DATABASE_SSL: "disable"
+  {{- else }}
+  DATABASE_SSL: {{ .Values.externalDatabase.sslMode | default "require" | quote }}
+  {{- end }}
+  {{- if .Values.redis.enabled }}
+  REDIS_TLS: "false"
+  {{- else }}
+  REDIS_TLS: {{ .Values.externalRedis.tls | default true | quote }}
+  {{- end }}
   EMAIL_FROM: {{ .Values.email.from | quote }}
   AWS_REGION: {{ .Values.email.ses.region | quote }}
   GITHUB_CALLBACK_URL: "https://{{ .Values.domain }}/auth/github/callback"

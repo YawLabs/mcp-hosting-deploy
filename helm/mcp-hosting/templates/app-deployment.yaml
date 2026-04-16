@@ -42,6 +42,15 @@ spec:
         - name: app
           image: "{{ .Values.app.image }}:{{ .Values.app.tag }}"
           imagePullPolicy: {{ eq .Values.app.tag "latest" | ternary "Always" "IfNotPresent" }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            # Node.js writes a warm V8 cache + tmp files to the FS at
+            # runtime, so readOnlyRootFilesystem stays off — flipping it
+            # on would crash the app at boot. Pod-level runAsNonRoot +
+            # dropped caps keep the container constrained anyway.
+            readOnlyRootFilesystem: false
           ports:
             - name: http
               containerPort: {{ .Values.app.port }}

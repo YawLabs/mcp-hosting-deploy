@@ -1,4 +1,12 @@
-{{- if and .Values.autoscaling.enabled (gt (int .Values.autoscaling.minReplicas) 1) }}
+{{/*
+  Render whenever the app has more than one replica, regardless of
+  whether replicas come from .Values.app.replicas (autoscaling off) or
+  .Values.autoscaling.minReplicas (autoscaling on). A 2-replica deploy
+  with no PDB is fully evictable during node drain — both pods can go
+  at once.
+*/}}
+{{- $replicaCount := ternary (int .Values.autoscaling.minReplicas) (int .Values.app.replicas) .Values.autoscaling.enabled -}}
+{{- if gt $replicaCount 1 }}
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:

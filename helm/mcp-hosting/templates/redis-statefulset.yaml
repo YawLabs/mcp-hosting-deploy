@@ -28,6 +28,11 @@ spec:
         - name: redis
           image: {{ .Values.redis.image }}
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: false
           {{- if .Values.redis.authToken }}
           args:
             - --requirepass
