@@ -255,7 +255,14 @@ test_fly() {
   # session even for pure schema checks, which isn't available in CI
   # without secrets. TOML parse + required-key sanity check catches the
   # malformed-file class of bug without needing flyctl at all.
-  if python3 - "$SCRIPT_DIR/fly/fly.toml" 2>&1 | tee "$RESULTS_DIR/fly.log" <<'PY'
+  #
+  # The heredoc + pipe combo needs to be wrapped in a brace group so
+  # `<<PY` feeds python3's stdin (not tee's). Without the braces bash
+  # parses `a 2>&1 | tee b <<PY` as `a 2>&1 | (tee b <<PY)`, which sent
+  # the script to tee and ran python3 with empty stdin — silently
+  # passing every test (shellcheck SC2259 caught this).
+  if {
+    python3 - "$SCRIPT_DIR/fly/fly.toml" <<'PY'
 import sys, tomllib
 doc = tomllib.loads(open(sys.argv[1], "rb").read().decode())
 for k in ("app", "primary_region", "build", "http_service"):
@@ -264,7 +271,7 @@ assert "image" in doc["build"], "[build] missing image"
 assert doc["http_service"].get("internal_port"), "[http_service] missing internal_port"
 print("fly.toml shape OK")
 PY
-  then
+  } 2>&1 | tee "$RESULTS_DIR/fly.log"; then
     ok "fly: fly.toml parses and has required keys"
     record fly pass "$(( $(date +%s) - start ))" "TOML shape OK"
   else

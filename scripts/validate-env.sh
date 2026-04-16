@@ -27,7 +27,7 @@ if [[ ! -f "$ENV_FILE" ]]; then
   exit 1
 fi
 
-# shellcheck disable=SC1090
+# shellcheck source=/dev/null
 set -a; . "$ENV_FILE"; set +a
 
 ERRORS=()
