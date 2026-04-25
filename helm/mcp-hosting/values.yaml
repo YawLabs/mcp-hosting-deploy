@@ -76,7 +76,11 @@ app:
 # Set postgres.enabled=true only for development/testing
 postgres:
   enabled: false  # DO NOT run Postgres in Kubernetes for production
-  image: postgres:18-alpine
+  # pgvector is required: the app's startup migrations run
+  # `CREATE EXTENSION IF NOT EXISTS vector`. Plain postgres:18 doesn't
+  # ship pgvector, so the pod crash-loops before binding /health.
+  # Mirrors the bundled Compose image.
+  image: pgvector/pgvector:pg18
   storage: 10Gi
   storageClass: ""
   database: mcphosting
@@ -110,7 +114,11 @@ redis:
   image: valkey/valkey:8.0-alpine
   storage: 1Gi
   storageClass: ""
-  # -- Auth token for Redis (optional, recommended in production)
+  # -- Auth token for Redis (REQUIRED when redis.enabled=true).
+  # The chart fails at render time if this is empty -- mirrors the
+  # Compose path's --requirepass guard so a misconfigured deploy can't
+  # silently boot Valkey unauthenticated. Generate with:
+  #   openssl rand -hex 24
   authToken: ""
 
 # =============================================================================

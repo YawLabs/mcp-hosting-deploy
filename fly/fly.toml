@@ -13,7 +13,11 @@ app = "mcp-hosting"
 primary_region = "iad"
 
 [build]
-  image = "ghcr.io/yawlabs/mcp-hosting:latest"
+  # Fly cannot auth to private GHCR. Mirror the image into registry.fly.io
+  # first (see ../docs/self-host-token.md, "Fly.io"), then either replace
+  # this value with the registry.fly.io tag you pushed, or pass --image
+  # at deploy time. bootstrap.sh in this directory does the latter.
+  image = "registry.fly.io/REPLACE_WITH_YOUR_APP:replace-with-deployment-tag"
 
 [env]
   SELF_HOSTED = "true"

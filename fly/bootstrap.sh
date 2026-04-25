@@ -29,7 +29,11 @@ set -euo pipefail
 # All values needed beyond APP_NAME/REGION are prompted interactively.
 # =============================================================================
 
-APP_NAME="${APP_NAME:-mcp-hosting-$(whoami)}"
+# Fly app names must match [a-z0-9-]+ -- slugify whoami because some
+# users have uppercase, dots, or other illegal chars in their login
+# (corp SSO usernames like "John.Doe" are common).
+_user_slug="$(whoami | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g; s/-\{2,\}/-/g; s/^-//; s/-$//')"
+APP_NAME="${APP_NAME:-mcp-hosting-${_user_slug}}"
 REGION="${REGION:-iad}"
 
 log()  { printf '\n\033[1;36m[bootstrap]\033[0m %s\n' "$*"; }
@@ -129,10 +133,24 @@ else
 fi
 
 # Attach is idempotent-ish: it sets DATABASE_URL on the app. If already
-# attached, it 422s with "database already attached" — tolerate that.
+# attached, it 422s with "database already attached" -- tolerate that
+# specifically. The naive `... | grep -v "already attached" || true`
+# under `set -euo pipefail` swallows EVERY failure (auth, network,
+# 5xx), leaving DATABASE_URL unset and crash-looping the app at boot.
+# Capture output, check exit, and only forgive the known-benign case.
 log "Attaching Postgres to $APP_NAME (creates DATABASE_URL secret)"
-fly postgres attach "$PG_APP" --app "$APP_NAME" --database-name mcphosting 2>&1 | \
-  grep -v "already attached" || true
+set +e
+attach_output="$(fly postgres attach "$PG_APP" --app "$APP_NAME" --database-name mcphosting 2>&1)"
+attach_exit=$?
+set -e
+if [[ $attach_exit -ne 0 ]]; then
+  if grep -q "already attached" <<<"$attach_output"; then
+    log "Postgres already attached to $APP_NAME"
+  else
+    printf '%s\n' "$attach_output" >&2
+    die "fly postgres attach failed (see error above)"
+  fi
+fi
 
 # -----------------------------------------------------------------------------
 # 3. Ensure Upstash Redis; split the emitted REDIS_URL into HOST/PORT/AUTH
@@ -204,6 +222,18 @@ fly deploy \
   --app "$APP_NAME" \
   --image "$FLY_TAG" \
   --config "$(dirname "$0")/fly.toml"
+
+# Issue a managed TLS cert for any DOMAIN that isn't the default
+# <app>.fly.dev (which Fly's edge already covers). `fly certs add` is
+# idempotent -- re-running for an existing cert prints status and exits 0.
+if [[ "$DOMAIN" != "$APP_NAME.fly.dev" ]]; then
+  log "Issuing TLS cert for $DOMAIN"
+  if ! fly certs add "$DOMAIN" --app "$APP_NAME"; then
+    warn "fly certs add did not succeed -- add it manually:"
+    warn "  fly certs add $DOMAIN --app $APP_NAME"
+    warn "Then add the DNS records the command prints."
+  fi
+fi
 
 log "Done. App URL: https://$DOMAIN"
 log "Health: curl -sf https://$DOMAIN/health"

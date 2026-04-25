@@ -199,6 +199,7 @@ test_helm() {
         --set app.githubClientSecret=y \
         --set app.cookieSecret=z \
         --set licenseKey=mcph_sh_citest \
+        --set redis.authToken=ci-redis-token \
         2>&1 | tee "$RESULTS_DIR/helm-lint.log"; then
     fail "helm: lint failed"
     record helm fail "$(( $(date +%s) - start ))" "helm lint failed"
@@ -216,6 +217,7 @@ test_helm() {
         --set app.githubClientSecret=y \
         --set app.cookieSecret=z \
         --set licenseKey=mcph_sh_citest \
+        --set redis.authToken=ci-redis-token \
         > "$out" 2> "$RESULTS_DIR/helm-template.err"; then
     fail "helm: helm template failed"
     cat "$RESULTS_DIR/helm-template.err"

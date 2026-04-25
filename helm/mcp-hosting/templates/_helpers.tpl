@@ -83,13 +83,26 @@ DATABASE_URL connection string
 Uses in-cluster postgres when postgres.enabled=true, otherwise externalDatabase.
 Fails with a clear error if external DB is required but not configured.
 */}}
+{{/*
+  WARNING: the password is embedded verbatim into DATABASE_URL. Helm has
+  no built-in URL-encoder, so passwords containing @, :, /, ?, #, %, +,
+  or whitespace will produce a malformed URL the driver rejects. Auto-
+  generated managed-DB passwords (RDS, Cloud SQL, AlloyDB) sometimes
+  include these. If you can't rotate to a URL-safe value, build
+  DATABASE_URL yourself in a Secret and override the chart's app Secret.
+*/}}
 {{- define "mcp-hosting.databaseUrl" -}}
 {{- if .Values.postgres.enabled -}}
 postgresql://{{ .Values.postgres.username }}:{{ .Values.postgres.password }}@{{ include "mcp-hosting.postgresHost" . }}:5432/{{ .Values.postgres.database }}
 {{- else -}}
-{{- required "externalDatabase.host is required when postgres.enabled=false. Set it to your RDS/Cloud SQL endpoint." .Values.externalDatabase.host -}}
-{{- required "externalDatabase.password is required when postgres.enabled=false." .Values.externalDatabase.password -}}
-postgresql://{{ .Values.externalDatabase.username }}:{{ .Values.externalDatabase.password }}@{{ .Values.externalDatabase.host }}:{{ .Values.externalDatabase.port }}{{ printf "/" }}{{ .Values.externalDatabase.database }}?sslmode={{ .Values.externalDatabase.sslMode }}
+{{/*
+  `required` returns the value it asserts on, which would render BEFORE
+  the URL ("pg.example.comtest postgresql://...") if used inline. Capture
+  the return into a discard variable to use it as a pure assertion.
+*/}}
+{{- $_ := required "externalDatabase.host is required when postgres.enabled=false. Set it to your RDS/Cloud SQL endpoint." .Values.externalDatabase.host -}}
+{{- $_ := required "externalDatabase.password is required when postgres.enabled=false." .Values.externalDatabase.password -}}
+postgresql://{{ .Values.externalDatabase.username }}:{{ .Values.externalDatabase.password }}@{{ .Values.externalDatabase.host }}:{{ .Values.externalDatabase.port }}/{{ .Values.externalDatabase.database }}?sslmode={{ .Values.externalDatabase.sslMode }}
 {{- end -}}
 {{- end }}
 
