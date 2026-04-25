@@ -69,7 +69,7 @@ echo $GITHUB_TOKEN | helm registry login ghcr.io -u <your-gh-user> --password-st
 
 # Install at a pinned chart version (recommended for production)
 helm install mcp-hosting oci://ghcr.io/yawlabs/charts/mcp-hosting \
-  --version 0.2.0 \
+  --version 0.2.1 \
   --namespace mcp-hosting --create-namespace \
   --set domain=mcp.example.com \
   --set licenseKey=mcph_sh_... \
@@ -83,7 +83,7 @@ helm install mcp-hosting oci://ghcr.io/yawlabs/charts/mcp-hosting \
 Two chart channels are published:
 
 - **Versioned** (`oci://ghcr.io/yawlabs/charts/mcp-hosting --version vX.Y.Z`) — tagged from `Chart.yaml`, immutable, what you should run in production. Tags ship via [`release.yml`](./.github/workflows/release.yml) when `vX.Y.Z` is pushed.
-- **Preview** (`oci://ghcr.io/yawlabs/charts/mcp-hosting --version 0.2.0+<sha>`) — every push to `master` that touches `helm/`. Useful for canary'ing chart changes before they cut a tag. Don't pin production to one of these.
+- **Preview** (`oci://ghcr.io/yawlabs/charts/mcp-hosting --version 0.2.1+<sha>`) — every push to `master` that touches `helm/`. Useful for canary'ing chart changes before they cut a tag. Don't pin production to one of these.
 
 Create the GHCR image-pull secret before installing — the chart references it but doesn't create it (the token shouldn't live in your values file):
 
