@@ -2,8 +2,8 @@ apiVersion: v2
 name: mcp-hosting
 description: Self-hosted mcp.hosting — mcph orchestrator, dashboard, and compliance runner for your team
 type: application
-version: 0.2.1
-appVersion: "1.0.0"
+version: 0.2.2
+appVersion: "0.22.2"
 keywords:
   - mcp
   - model-context-protocol
