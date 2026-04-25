@@ -24,7 +24,7 @@ All user data lives in Postgres:
 0 2 * * * /path/to/mcp-hosting-deploy/scripts/backup.sh
 ```
 
-The script writes timestamped `mcp-hosting-backup-YYYYMMDD-HHMMSS.sql.gz` files under `./backups/` by default.
+The script writes timestamped `mcp-hosting-YYYYMMDD-HHMMSS.sql.gz` files under `./backups/` by default.
 
 ### Backups uploaded to S3 (recommended for production)
 
@@ -46,7 +46,7 @@ The script uses your AWS CLI default credentials. Use an IAM user scoped to a si
 
 ```bash
 # Docker Compose
-gunzip -c backups/mcp-hosting-backup-20260414-020001.sql.gz \
+gunzip -c backups/mcp-hosting-20260414-020001.sql.gz \
   | docker compose exec -T postgres psql -U mcphosting mcphosting
 
 # Pull the Postgres container's state fresh first if restoring from scratch
@@ -54,7 +54,7 @@ docker compose down
 docker volume rm docker-compose_postgres_data
 docker compose up -d postgres
 # wait ~5s for Postgres to accept connections
-gunzip -c backups/mcp-hosting-backup-20260414-020001.sql.gz \
+gunzip -c backups/mcp-hosting-20260414-020001.sql.gz \
   | docker compose exec -T postgres psql -U mcphosting mcphosting
 docker compose up -d
 ```
@@ -62,8 +62,8 @@ docker compose up -d
 ### From S3
 
 ```bash
-aws s3 cp s3://my-bucket/mcp-backups/mcp-hosting-backup-20260414-020001.sql.gz .
-gunzip -c mcp-hosting-backup-20260414-020001.sql.gz \
+aws s3 cp s3://my-bucket/mcp-backups/mcp-hosting-20260414-020001.sql.gz .
+gunzip -c mcp-hosting-20260414-020001.sql.gz \
   | docker compose exec -T postgres psql -U mcphosting mcphosting
 ```
 

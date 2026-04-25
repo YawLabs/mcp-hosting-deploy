@@ -55,11 +55,22 @@ kubectl -n mcp-hosting rollout status deployment/mcp-hosting-app
 
 ### Docker Compose
 
+`docker-compose.yml` pins `image: ghcr.io/yawlabs/mcp-hosting:latest`,
+so a rollback can't be done with a plain env var -- there's no
+interpolation on that line. Pin the previous tag in a gitignored
+override and re-up:
+
 ```bash
-# Pin the previous tag
-export MCP_HOSTING_IMAGE_TAG=v0.8.0   # whatever the prior version was
+cat > docker-compose.override.yml <<'YAML'
+services:
+  mcp-hosting-app:
+    image: ghcr.io/yawlabs/mcp-hosting:v0.8.0   # whatever the prior version was
+YAML
+
 docker compose up -d mcp-hosting-app
 ```
+
+To return to `:latest`, delete the override file and re-up.
 
 ### Helm
 

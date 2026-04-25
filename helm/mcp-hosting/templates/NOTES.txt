@@ -29,7 +29,7 @@ ERROR: No database configured.
 {{- end }}
 {{- end }}
 
-{{- if not (or .Values.email.ses.accessKeyId) }}
+{{- if not .Values.email.ses.accessKeyId }}
 
 NOTE: No email credentials configured. Magic link login will not work.
   Configure AWS SES credentials:

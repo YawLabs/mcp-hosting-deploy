@@ -20,7 +20,7 @@ data:
   {{- if .Values.postgres.enabled }}
   DATABASE_SSL: "disable"
   {{- else }}
-  DATABASE_SSL: {{ .Values.externalDatabase.sslMode | default "require" | quote }}
+  DATABASE_SSL: {{ .Values.externalDatabase.sslMode | quote }}
   {{- end }}
   {{- if .Values.redis.enabled }}
   REDIS_TLS: "false"

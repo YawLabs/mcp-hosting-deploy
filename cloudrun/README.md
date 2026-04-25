@@ -166,7 +166,7 @@ gcloud run deploy mcp-hosting \
   --add-cloudsql-instances="$SQL_CONNECTION_NAME" \
   --vpc-connector=mcp-hosting-vpc \
   --vpc-egress=private-ranges-only \
-  --set-env-vars="SELF_HOSTED=true,NODE_ENV=production,BASE_DOMAIN=mcp.example.com,REDIS_HOST=${REDIS_HOST},REDIS_PORT=${REDIS_PORT},REDIS_AUTH_TOKEN=,REDIS_TLS=true,DATABASE_SSL=require,AWS_REGION=us-east-1,EMAIL_FROM=noreply@mcp.example.com" \
+  --set-env-vars="SELF_HOSTED=true,NODE_ENV=production,BASE_DOMAIN=mcp.example.com,REDIS_HOST=${REDIS_HOST},REDIS_PORT=${REDIS_PORT},REDIS_AUTH_TOKEN=,REDIS_TLS=false,DATABASE_SSL=disable,AWS_REGION=us-east-1,EMAIL_FROM=noreply@mcp.example.com" \
   --set-secrets="DATABASE_URL=mcp-hosting-db-url:latest,COOKIE_SECRET=mcp-hosting-cookie-secret:latest,MCP_HOSTING_LICENSE_KEY=mcp-hosting-license-key:latest,GITHUB_CLIENT_ID=mcp-hosting-gh-client-id:latest,GITHUB_CLIENT_SECRET=mcp-hosting-gh-client-secret:latest,AWS_ACCESS_KEY_ID=mcp-hosting-aws-key:latest,AWS_SECRET_ACCESS_KEY=mcp-hosting-aws-secret:latest"
 ```
 
@@ -176,6 +176,8 @@ Notes on the flags above:
 - `--add-cloudsql-instances` injects the Cloud SQL Auth Proxy sidecar that backs the unix socket in `DATABASE_URL`.
 - `--vpc-connector` routes Memorystore traffic through the connector built in step 4. Without it, the service can't reach Redis.
 - `--timeout=3600` matches the SSE / Streamable HTTP long-lived connection requirement.
+- `DATABASE_SSL=disable` matches the Cloud SQL Auth Proxy unix socket — TLS terminates inside the proxy sidecar, the app's own connection is over the local socket. If you switch to a TCP `DATABASE_URL` (private IP, no proxy), set `DATABASE_SSL=require`.
+- `REDIS_TLS=false` matches the basic-tier Memorystore provisioned in step 3 (no AUTH, no TLS). If you upgrade to a standard / enterprise tier with `--enable-auth` and in-transit encryption, set `REDIS_TLS=true` and add `REDIS_AUTH_TOKEN=...` to the env-var list.
 
 `MCP_HOSTING_LICENSE_KEY` is required — the app refuses to boot without a valid Team license.
 
